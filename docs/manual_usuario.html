@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual de Usuario - Sistema Qtrazer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0d9330 0%, #0b7a27 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .nav {
+            background: #34495e;
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav ul {
+            list-style: none;
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .nav a {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .nav a:hover {
+            background-color: #0d9330;
+        }
+
+        .content {
+            padding: 2rem;
+        }
+
+        .section {
+            margin-bottom: 3rem;
+            padding: 2rem;
+            border-left: 4px solid #0d9330;
+            background: #f8f9fa;
+            border-radius: 0 10px 10px 0;
+        }
+
+        .section h2 {
+            color: #0d9330;
+            margin-bottom: 1rem;
+            font-size: 1.8rem;
+        }
+
+        .section h3 {
+            color: #34495e;
+            margin: 1.5rem 0 1rem 0;
+            font-size: 1.4rem;
+        }
+
+        .section h4 {
+            color: #2c3e50;
+            margin: 1rem 0 0.5rem 0;
+            font-size: 1.2rem;
+        }
+
+        .section p {
+            margin-bottom: 1rem;
+            text-align: justify;
+        }
+
+        .section ul, .section ol {
+            margin: 1rem 0 1rem 2rem;
+        }
+
+        .section li {
+            margin-bottom: 0.5rem;
+        }
+
+        .highlight {
+            background: #e8f5e8;
+            padding: 1rem;
+            border-radius: 5px;
+            border-left: 4px solid #0d9330;
+            margin: 1rem 0;
+        }
+
+        .warning {
+            background: #fff3cd;
+            padding: 1rem;
+            border-radius: 5px;
+            border-left: 4px solid #ffc107;
+            margin: 1rem 0;
+        }
+
+        .error {
+            background: #f8d7da;
+            padding: 1rem;
+            border-radius: 5px;
+            border-left: 4px solid #dc3545;
+            margin: 1rem 0;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        th {
+            background: #0d9330;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        tr:hover {
+            background: #e8f5e8;
+        }
+
+        .code-block {
+            background: #f4f4f4;
+            padding: 1rem;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            margin: 1rem 0;
+            border-left: 4px solid #0d9330;
+        }
+
+        .button-example {
+            display: inline-block;
+            background: #0d9330;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            margin: 0.5rem;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .button-example:hover {
+            background: #0b7a27;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-top: 4px solid #0d9330;
+        }
+
+        .feature-card h4 {
+            color: #0d9330;
+            margin-bottom: 1rem;
+        }
+
+        .footer {
+            background: #34495e;
+            color: white;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+        }
+
+        .toc {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+        }
+
+        .toc h3 {
+            color: #0d9330;
+            margin-bottom: 1rem;
+        }
+
+        .toc ul {
+            list-style: none;
+        }
+
+        .toc li {
+            margin-bottom: 0.5rem;
+        }
+
+        .toc a {
+            color: #34495e;
+            text-decoration: none;
+            padding: 0.25rem 0;
+            display: block;
+            transition: color 0.3s;
+        }
+
+        .toc a:hover {
+            color: #0d9330;
+        }
+
+        @media (max-width: 768px) {
+            .nav ul {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .content {
+                padding: 1rem;
+            }
+            
+            .section {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚗 Sistema Qtrazer</h1>
+            <p>Manual de Usuario - Consulta de Siniestros Viales en Bogotá</p>
+        </div>
+
+        <nav class="nav">
+            <ul>
+                <li><a href="#introduccion">Introducción</a></li>
+                <li><a href="#requisitos">Requisitos</a></li>
+                <li><a href="#instalacion">Instalación</a></li>
+                <li><a href="#inicio">Inicio</a></li>
+                <li><a href="#interfaz">Interfaz</a></li>
+                <li><a href="#actualizacion">Actualización</a></li>
+                <li><a href="#consulta">Consulta</a></li>
+                <li><a href="#problemas">Solución</a></li>
+            </ul>
+        </nav>
+
+        <div class="content">
+            <div class="toc">
+                <h3>📋 Índice del Manual</h3>
+                <ul>
+                    <li><a href="#introduccion">1. Introducción</a></li>
+                    <li><a href="#requisitos">2. Requisitos del Sistema</a></li>
+                    <li><a href="#instalacion">3. Instalación</a></li>
+                    <li><a href="#inicio">4. Inicio del Sistema</a></li>
+                    <li><a href="#interfaz">5. Interfaz Principal</a></li>
+                    <li><a href="#actualizacion">6. Módulo de Actualización</a></li>
+                    <li><a href="#consulta">7. Módulo de Consulta</a></li>
+                    <li><a href="#funcionalidades">8. Funcionalidades Avanzadas</a></li>
+                    <li><a href="#problemas">9. Solución de Problemas</a></li>
+                    <li><a href="#legal">10. Información Legal</a></li>
+                </ul>
+            </div>
+
+            <div id="introduccion" class="section">
+                <h2>🎯 Introducción</h2>
+                <p><strong>Qtrazer</strong> es un sistema especializado para consultar datos de siniestros viales en Bogotá, desarrollado para proporcionar acceso a información oficial sobre accidentes de tránsito en la ciudad. El sistema permite a los usuarios consultar registros históricos de siniestros viales y mantener actualizada la base de datos local con información proveniente de los repositorios oficiales de la Secretaría Distrital de Movilidad.</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4>🔍 Consulta de Siniestros</h4>
+                        <p>Búsqueda y filtrado de registros de accidentes viales con múltiples criterios de búsqueda.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>🔄 Actualización Automática</h4>
+                        <p>Descarga y sincronización automática de datos oficiales desde las APIs de la Secretaría de Movilidad.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>💻 Interfaz Intuitiva</h4>
+                        <p>Diseño moderno y fácil de usar con navegación clara y funcionalidades bien organizadas.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>📊 Exportación de Datos</h4>
+                        <p>Generación de reportes en formato Excel para análisis posteriores y presentaciones.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="requisitos" class="section">
+                <h2>💻 Requisitos del Sistema</h2>
+                
+                <h3>Requisitos Mínimos</h3>
+                <ul>
+                    <li><strong>Sistema Operativo:</strong> Windows 10 o superior</li>
+                    <li><strong>Memoria RAM:</strong> 4 GB mínimo, 8 GB recomendado</li>
+                    <li><strong>Espacio en Disco:</strong> 2 GB de espacio libre</li>
+                    <li><strong>Python:</strong> Versión 3.8 o superior</li>
+                    <li><strong>Conexión a Internet:</strong> Para actualizaciones de base de datos</li>
+                </ul>
+
+                <h3>Dependencias del Sistema</h3>
+                <p>El sistema requiere las siguientes bibliotecas de Python:</p>
+                <div class="code-block">
+                    tkinter - Interfaz gráfica<br>
+                    pandas - Manipulación de datos<br>
+                    psycopg2 - Conexión a base de datos PostgreSQL<br>
+                    requests - Comunicación con APIs<br>
+                    PIL - Procesamiento de imágenes<br>
+                    tkcalendar - Selector de fechas
+                </div>
+            </div>
+
+            <div id="instalacion" class="section">
+                <h2>⚙️ Instalación</h2>
+                
+                <h3>Instalación Automática</h3>
+                <ol>
+                    <li>Ejecute el archivo <code>Qtrazer.exe</code> (si está disponible)</li>
+                    <li>Siga las instrucciones del instalador</li>
+                    <li>El sistema se configurará automáticamente</li>
+                </ol>
+
+                <h3>Instalación Manual</h3>
+                <ol>
+                    <li>Asegúrese de tener Python 3.8+ instalado</li>
+                    <li>Clone o descargue el repositorio del proyecto</li>
+                    <li>Navegue al directorio del proyecto</li>
+                    <li>Instale las dependencias:</li>
+                </ol>
+                <div class="code-block">
+                    pip install -r requirements.txt
+                </div>
+                <ol start="5">
+                    <li>Ejecute el archivo principal:</li>
+                </ol>
+                <div class="code-block">
+                    python src/main.py
+                </div>
+            </div>
+
+            <div id="inicio" class="section">
+                <h2>🚀 Inicio del Sistema</h2>
+                
+                <h3>Pantalla de Inicio (Splash Screen)</h3>
+                <p>Al iniciar el sistema, se mostrará una pantalla de bienvenida con el logo de Qtrazer durante 4 segundos. Esta pantalla indica que el sistema se está cargando.</p>
+                
+                <h3>Ventana Principal</h3>
+                <p>Después del splash screen, se abre la ventana principal del sistema que contiene:</p>
+                <ul>
+                    <li><strong>Logo de Qtrazer</strong> en la parte superior</li>
+                    <li><strong>Mensaje de bienvenida</strong> explicando el propósito del sistema</li>
+                    <li><strong>Dos botones principales:</strong>
+                        <ul>
+                            <li>Actualizar Base de datos</li>
+                            <li>Consultar Siniestros</li>
+                        </ul>
+                    </li>
+                    <li><strong>Botón de Finalizar Sesión</strong> en la parte inferior</li>
+                    <li><strong>Información legal</strong> sobre el origen de los datos</li>
+                </ul>
+            </div>
+
+            <div id="interfaz" class="section">
+                <h2>🖥️ Interfaz Principal</h2>
+                
+                <h3>Navegación</h3>
+                <p>La interfaz principal es el punto de acceso a todas las funcionalidades del sistema. Desde aquí puede:</p>
+                <ol>
+                    <li><strong>Actualizar la Base de Datos:</strong> Acceder al módulo de sincronización</li>
+                    <li><strong>Consultar Siniestros:</strong> Acceder al módulo de consultas</li>
+                    <li><strong>Finalizar Sesión:</strong> Cerrar el sistema completamente</li>
+                </ol>
+
+                <h3>Diseño Visual</h3>
+                <ul>
+                    <li><strong>Colores:</strong> Esquema de colores verde (#0d9330) para botones principales</li>
+                    <li><strong>Tipografía:</strong> Helvetica para mejor legibilidad</li>
+                    <li><strong>Responsive:</strong> La interfaz se adapta al tamaño de la ventana</li>
+                    <li><strong>Logo:</strong> Imagen corporativa de Qtrazer en la parte superior</li>
+                </ul>
+            </div>
+
+            <div id="actualizacion" class="section">
+                <h2>🔄 Módulo de Actualización de Base de Datos</h2>
+                
+                <h3>Propósito</h3>
+                <p>Este módulo permite sincronizar la base de datos local con los datos oficiales más recientes de la Secretaría de Movilidad de Bogotá.</p>
+                
+                <h3>Acceso</h3>
+                <p>Desde la ventana principal, haga clic en <span class="button-example">Actualizar Base de datos</span></p>
+                
+                <h3>Funcionalidades</h3>
+                
+                <h4>1. Panel de Control</h4>
+                <ul>
+                    <li><strong>Botón "Iniciar Actualización":</strong> Comienza el proceso de sincronización</li>
+                    <li><strong>Botón "Cerrar":</strong> Cierra la ventana de actualización</li>
+                    <li><strong>Barra de Progreso:</strong> Muestra el avance del proceso</li>
+                    <li><strong>Porcentaje:</strong> Indicador numérico del progreso</li>
+                </ul>
+
+                <h4>2. Área de Log</h4>
+                <ul>
+                    <li><strong>Registro en Tiempo Real:</strong> Muestra todos los eventos del proceso</li>
+                    <li><strong>Códigos de Color:</strong></li>
+                </ul>
+                <div class="highlight">
+                    🔵 <strong>Azul:</strong> Mensajes de inicio<br>
+                    🟢 <strong>Verde:</strong> Información de progreso y éxito<br>
+                    🔴 <strong>Rojo:</strong> Errores y advertencias<br>
+                    ⚫ <strong>Negro:</strong> Información general
+                </div>
+
+                <h4>3. Estados del Proceso</h4>
+                <ul>
+                    <li><strong>"Listo para actualizar":</strong> Estado inicial</li>
+                    <li><strong>"Iniciando actualización...":</strong> Proceso comenzando</li>
+                    <li><strong>"Progreso: X registros (Y%)":</strong> Actualización en curso</li>
+                    <li><strong>"Actualización completada exitosamente":</strong> Proceso finalizado</li>
+                </ul>
+
+                <h3>Proceso de Actualización</h3>
+                
+                <h4>Fase 1: Verificación de Conexión</h4>
+                <ul>
+                    <li>El sistema verifica la conectividad con la base de datos</li>
+                    <li>Obtiene el ObjectID más reciente para determinar qué datos descargar</li>
+                </ul>
+
+                <h4>Fase 2: Descarga de Datos</h4>
+                <ul>
+                    <li>Se conecta a las APIs oficiales de la Secretaría de Movilidad</li>
+                    <li>Descarga datos de las siguientes tablas:</li>
+                </ul>
+                <div class="highlight">
+                    <strong>Accidentes:</strong> Información general de siniestros<br>
+                    <strong>Actores Viales:</strong> Personas involucradas en accidentes<br>
+                    <strong>Causas:</strong> Motivos de los accidentes<br>
+                    <strong>Vehículos:</strong> Información de vehículos involucrados<br>
+                    <strong>Vías:</strong> Características de las carreteras
+                </div>
+
+                <h4>Fase 3: Procesamiento</h4>
+                <ul>
+                    <li>Los datos se procesan y validan</li>
+                    <li>Se insertan en la base de datos local</li>
+                    <li>Se actualiza el progreso en tiempo real</li>
+                </ul>
+
+                <h4>Fase 4: Finalización</h4>
+                <ul>
+                    <li>Se verifica la integridad de los datos</li>
+                    <li>Se muestra el resumen final</li>
+                    <li>Los botones se habilitan nuevamente</li>
+                </ul>
+
+                <div class="warning">
+                    <h4>⚠️ Consideraciones Importantes</h4>
+                    <ul>
+                        <li><strong>No cierre la ventana</strong> durante la actualización</li>
+                        <li><strong>Mantenga la conexión a internet</strong> activa</li>
+                        <li><strong>El proceso puede tomar varios minutos</strong> dependiendo de la cantidad de datos</li>
+                        <li><strong>Los datos existentes se preservan</strong> y solo se agregan los nuevos</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div id="consulta" class="section">
+                <h2>🔍 Módulo de Consulta de Siniestros</h2>
+                
+                <h3>Propósito</h3>
+                <p>Este módulo permite buscar, filtrar y analizar los registros de siniestros viales almacenados en la base de datos local.</p>
+                
+                <h3>Acceso</h3>
+                <p>Desde la ventana principal, haga clic en <span class="button-example">Consultar Siniestros</span></p>
+                
+                <h3>Funcionalidades Principales</h3>
+                
+                <h4>1. Selección de Fechas</h4>
+                <ul>
+                    <li><strong>Fecha Inicial:</strong> Seleccione la fecha de inicio del período de consulta</li>
+                    <li><strong>Fecha Final:</strong> Seleccione la fecha de fin del período de consulta</li>
+                    <li><strong>Formato:</strong> DD/MM/AAAA</li>
+                    <li><strong>Selector de Calendario:</strong> Haga clic en el campo de fecha para abrir un calendario</li>
+                </ul>
+
+                <h4>2. Botones de Control</h4>
+                <ul>
+                    <li><span class="button-example">Consultar</span> Inicia la búsqueda con los parámetros seleccionados</li>
+                    <li><span class="button-example">Cancelar</span> Detiene una consulta en progreso</li>
+                    <li><span class="button-example">Filtros Avanzados ▼</span> Muestra/oculta opciones de filtrado adicionales</li>
+                </ul>
+
+                <h4>3. Filtros Avanzados</h4>
+                <p>Haga clic en <strong>"Filtros Avanzados ▼"</strong> para acceder a opciones adicionales:</p>
+                <ul>
+                    <li><strong>Localidad:</strong> Filtra por barrio o zona de Bogotá</li>
+                    <li><strong>Vehículo:</strong> Filtra por tipo de vehículo involucrado</li>
+                    <li><strong>Estado Actor Vial:</strong> Filtra por condición de la persona (Herido, Ileso, Muerto)</li>
+                    <li><strong>Causante:</strong> Filtra por responsable del accidente</li>
+                </ul>
+
+                <h4>4. Aplicación de Filtros</h4>
+                <ul>
+                    <li><span class="button-example">Aplicar Filtros</span> Ejecuta el filtrado con los criterios seleccionados</li>
+                    <li><span class="button-example">Limpiar Filtros</span> Restablece todos los filtros a valores vacíos</li>
+                </ul>
+
+                <h3>Tabla de Resultados</h3>
+                
+                <h4>Columnas Disponibles</h4>
+                <p>La tabla muestra la siguiente información para cada siniestro:</p>
+                
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Columna</th>
+                                <th>Descripción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>ID</strong></td>
+                                <td>Identificador único del registro</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Formulario</strong></td>
+                                <td>Número de formulario del accidente</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Fecha</strong></td>
+                                <td>Fecha de ocurrencia del siniestro</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Hora</strong></td>
+                                <td>Hora aproximada del accidente</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Localidad</strong></td>
+                                <td>Barrio o zona de Bogotá</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Clases Vehículos</strong></td>
+                                <td>Tipos de vehículos involucrados</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Placas</strong></td>
+                                <td>Números de placa de los vehículos</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Condiciones Actores</strong></td>
+                                <td>Estado de las personas involucradas</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Fallecidos</strong></td>
+                                <td>Número de personas fallecidas</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Heridos</strong></td>
+                                <td>Número de personas heridas</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Ilesos</strong></td>
+                                <td>Número de personas ilesas</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Estados</strong></td>
+                                <td>Condición de los actores viales</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Géneros</strong></td>
+                                <td>Género de las personas involucradas</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Edades</strong></td>
+                                <td>Edades de las personas involucradas</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Causante</strong></td>
+                                <td>Responsable del accidente</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Causa</strong></td>
+                                <td>Descripción de la causa del accidente</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Terreno Vía</strong></td>
+                                <td>Tipo de superficie de la carretera</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Estado Vía</strong></td>
+                                <td>Condición de la vía</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h4>Navegación en la Tabla</h4>
+                <ul>
+                    <li><strong>Scroll Vertical:</strong> Use la rueda del mouse o la barra de desplazamiento</li>
+                    <li><strong>Scroll Horizontal:</strong> Use la barra de desplazamiento horizontal</li>
+                    <li><strong>Ordenamiento:</strong> Haga clic en los encabezados de columna para ordenar</li>
+                    <li><strong>Selección:</strong> Haga clic en una fila para seleccionarla</li>
+                </ul>
+
+                <h3>Funcionalidades de Exportación</h3>
+                
+                <h4>Exportar a Excel</h4>
+                <ul>
+                    <li>Haga clic en <span class="button-example">Exportar a Excel</span></li>
+                    <li>Seleccione la ubicación donde guardar el archivo</li>
+                    <li>El archivo contendrá todos los resultados filtrados</li>
+                    <li>Formato: Archivo .xlsx compatible con Microsoft Excel</li>
+                </ul>
+
+                <h3>Navegación y Control</h3>
+                
+                <h4>Botones de Navegación</h4>
+                <ul>
+                    <li><span class="button-example">Volver al Inicio</span> Regresa a la ventana principal</li>
+                    <li><span class="button-example">Cerrar</span> Cierra la ventana de consulta</li>
+                </ul>
+
+                <h4>Barra de Estado</h4>
+                <ul>
+                    <li><strong>Indicador de Progreso:</strong> Muestra el estado de la consulta</li>
+                    <li><strong>Mensajes de Estado:</strong> Informa sobre el proceso actual</li>
+                </ul>
+            </div>
+
+            <div id="funcionalidades" class="section">
+                <h2>🚀 Funcionalidades Avanzadas</h2>
+                
+                <h3>Filtrado Inteligente</h3>
+                <ul>
+                    <li><strong>Filtros Combinados:</strong> Puede aplicar múltiples filtros simultáneamente</li>
+                    <li><strong>Búsqueda por Rango:</strong> Seleccione períodos específicos de tiempo</li>
+                    <li><strong>Filtros Dinámicos:</strong> Los valores disponibles se actualizan según los resultados</li>
+                </ul>
+
+                <h3>Gestión de Datos</h3>
+                <ul>
+                    <li><strong>Conexión a Base de Datos:</strong> Integración con PostgreSQL</li>
+                    <li><strong>Sincronización Automática:</strong> Descarga de datos oficiales</li>
+                    <li><strong>Validación de Datos:</strong> Verificación de integridad</li>
+                </ul>
+
+                <h3>Interfaz Responsiva</h3>
+                <ul>
+                    <li><strong>Adaptación de Tamaño:</strong> La interfaz se ajusta al tamaño de la ventana</li>
+                    <li><strong>Scroll Inteligente:</strong> Navegación fluida en tablas grandes</li>
+                    <li><strong>Diseño Moderno:</strong> Interfaz gráfica profesional</li>
+                </ul>
+            </div>
+
+            <div id="problemas" class="section">
+                <h2>🔧 Solución de Problemas</h2>
+                
+                <h3>Problemas Comunes</h3>
+                
+                <h4>1. Error de Conexión a Base de Datos</h4>
+                <div class="error">
+                    <strong>Síntomas:</strong> Mensaje "Error: list index out of range" en el log<br>
+                    <strong>Solución:</strong>
+                    <ul>
+                        <li>Verifique que el servidor de base de datos esté activo</li>
+                        <li>Confirme las credenciales de conexión</li>
+                        <li>Revise la conectividad de red</li>
+                    </ul>
+                </div>
+
+                <h4>2. Error al Actualizar Tablas</h4>
+                <div class="error">
+                    <strong>Síntomas:</strong> Mensaje "Error al actualizar la tabla 'X'"<br>
+                    <strong>Solución:</strong>
+                    <ul>
+                        <li>Verifique la conexión a internet</li>
+                        <li>Confirme que las APIs estén disponibles</li>
+                        <li>Revise los permisos de escritura en la base de datos</li>
+                    </ul>
+                </div>
+
+                <h4>3. Problemas de Rendimiento</h4>
+                <div class="warning">
+                    <strong>Síntomas:</strong> Consultas lentas o interfaz no responsiva<br>
+                    <strong>Solución:</strong>
+                    <ul>
+                        <li>Cierre otras aplicaciones que consuman recursos</li>
+                        <li>Verifique el espacio disponible en disco</li>
+                        <li>Considere aumentar la memoria RAM</li>
+                    </ul>
+                </div>
+
+                <h4>4. Errores de Imagen</h4>
+                <div class="warning">
+                    <strong>Síntomas:</strong> Logo no se muestra correctamente<br>
+                    <strong>Solución:</strong>
+                    <ul>
+                        <li>Verifique que los archivos de imagen estén en la carpeta <code>assets/</code></li>
+                        <li>Confirme que las imágenes no estén corruptas</li>
+                        <li>Reinicie la aplicación</li>
+                    </ul>
+                </div>
+
+                <h3>Logs y Diagnóstico</h3>
+                <ul>
+                    <li><strong>Área de Log:</strong> Revise los mensajes en tiempo real</li>
+                    <li><strong>Códigos de Color:</strong> Identifique rápidamente el tipo de mensaje</li>
+                    <li><strong>Mensajes de Error:</strong> Copie los mensajes de error para soporte técnico</li>
+                </ul>
+
+                <h3>Reinicio del Sistema</h3>
+                <p>Si experimenta problemas persistentes:</p>
+                <ol>
+                    <li>Cierre completamente la aplicación</li>
+                    <li>Espere 10 segundos</li>
+                    <li>Reinicie la aplicación</li>
+                    <li>Si el problema persiste, contacte al soporte técnico</li>
+                </ol>
+            </div>
+
+            <div id="legal" class="section">
+                <h2>⚖️ Información Legal</h2>
+                
+                <h3>Origen de los Datos</h3>
+                <p>Los datos consultados y presentados en este sistema provienen del repositorio oficial de datos abiertos de la Secretaría Distrital de Movilidad de Bogotá, disponible en <a href="https://datos.movilidadbogota.gov.co" target="_blank">datos.movilidadbogota.gov.co</a>.</p>
+                
+                <h3>Marco Legal</h3>
+                <p>Estos conjuntos de datos son de acceso público y están disponibles para su uso y reutilización sin restricciones legales, conforme a la <strong>Ley 1712 de 2014</strong> sobre Transparencia y Acceso a la Información Pública Nacional.</p>
+                
+                <h3>Responsabilidad</h3>
+                <p>La Secretaría de Movilidad ha dispuesto esta información en formatos estándar e interoperables, permitiendo su aprovechamiento por parte de:</p>
+                <ul>
+                    <li>Ciudadanos</li>
+                    <li>Entidades públicas y privadas</li>
+                    <li>Academia</li>
+                    <li>Investigadores</li>
+                </ul>
+
+                <h3>Uso de Datos</h3>
+                <ul>
+                    <li>Los datos son de carácter público y oficial</li>
+                    <li>Se recomienda citar la fuente en cualquier publicación o análisis</li>
+                    <li>La información se actualiza periódicamente según la disponibilidad oficial</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>📞 Soporte Técnico</h2>
+                
+                <h3>Contacto</h3>
+                <p>Para soporte técnico o reportar problemas:</p>
+                <ul>
+                    <li><strong>Email:</strong> <a href="mailto:soporte@qtrazer.com">soporte@qtrazer.com</a></li>
+                    <li><strong>Documentación:</strong> Consulte la documentación técnica del proyecto</li>
+                    <li><strong>Issues:</strong> Reporte problemas a través del sistema de gestión de incidencias</li>
+                </ul>
+
+                <h3>Recursos Adicionales</h3>
+                <ul>
+                    <li><strong>Manual Técnico:</strong> Documentación para desarrolladores</li>
+                    <li><strong>API Reference:</strong> Referencia de las APIs utilizadas</li>
+                    <li><strong>Base de Conocimientos:</strong> Soluciones a problemas comunes</li>
+                </ul>
+            </div>
+
+            <div class="section">
+                <h2>🎯 Conclusión</h2>
+                <p>El sistema Qtrazer proporciona una herramienta completa y profesional para el análisis de datos de siniestros viales en Bogotá. Con su interfaz intuitiva, funcionalidades avanzadas de filtrado y capacidad de exportación, permite a los usuarios acceder fácilmente a información oficial y actualizada sobre la seguridad vial en la ciudad.</p>
+                
+                <p>Para obtener el máximo provecho del sistema:</p>
+                <ol>
+                    <li><strong>Mantenga la base de datos actualizada</strong> regularmente</li>
+                    <li><strong>Utilice los filtros avanzados</strong> para consultas específicas</li>
+                    <li><strong>Exporte los resultados</strong> para análisis posteriores</li>
+                    <li><strong>Revise los logs</strong> en caso de problemas</li>
+                    <li><strong>Consulte la documentación</strong> para funcionalidades avanzadas</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>Manual de Usuario - Sistema Qtrazer v1.0</strong></p>
+            <p>Última actualización: Enero 2025</p>
+            <p>Desarrollado para la consulta de datos de siniestros viales en Bogotá</p>
+        </div>
+    </div>
+</body>
+</html> 
