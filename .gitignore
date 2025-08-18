@@ -1,1 +1,4 @@
 docs/
+test/
+requirements-testing.txt
+pytest.ini
