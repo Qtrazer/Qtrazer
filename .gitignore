@@ -1,4 +1,4 @@
 docs/
-test/
+tests/
 requirements-testing.txt
 pytest.ini

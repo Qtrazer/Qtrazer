@@ -1,1 +1,0 @@
-"""Tests funcionales para Qtrazer."""
