@@ -1,4 +1,9 @@
 """Configuración de la aplicación."""
+import os
+from dotenv import load_dotenv
+
+# Cargar variables de entorno
+load_dotenv()
 
 # Configuración de la interfaz
 CONFIG_INTERFAZ = {
@@ -10,11 +15,11 @@ CONFIG_INTERFAZ = {
 
 # Configuración de la base de datos
 PARAMETROS_BD = {
-    'dbname': 'Siniestros',
-    'user': 'Analyst',
-    'password': 'Julio2019**',
-    'host': '190.60.210.154', #10.14.15.35 | 190.60.210.154
-    'port': '5432'
+    'dbname': os.getenv('DB_NAME', ''),
+    'user': os.getenv('DB_USER', ''),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'host': os.getenv('DB_HOST', ''),
+    'port': os.getenv('DB_PORT', '5432')
 }
 
 # Configuración de las tablas

@@ -2,3 +2,7 @@ docs/
 tests/
 requirements-testing.txt
 pytest.ini
+
+# Variables de entorno
+.env
+*.env
