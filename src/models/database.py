@@ -1,7 +1,7 @@
 """Modelo para operaciones con la base de datos."""
 
 import psycopg2
-from src.config.settings import PARAMETROS_BD, CONFIG_TABLAS
+from src.config.settings import get_database_params, CONFIG_TABLAS
 
 class GestorBaseDatos:
     def __init__(self):
@@ -11,12 +11,18 @@ class GestorBaseDatos:
     def conectar(self):
         """Establece conexión con la base de datos."""
         try:
+            # Obtener configuración actual en tiempo real
+            config = get_database_params()
+            
+            if config is None:
+                raise Exception("No hay configuración de base de datos. Por favor, configure la base de datos primero.")
+            
             self.conexion = psycopg2.connect(
-                dbname=PARAMETROS_BD['dbname'],
-                user=PARAMETROS_BD['user'],
-                password=PARAMETROS_BD['password'],
-                host=PARAMETROS_BD['host'],
-                port=PARAMETROS_BD['port']
+                dbname=config['dbname'],
+                user=config['user'],
+                password=config['password'],
+                host=config['host'],
+                port=config['port']
             )
             self.cursor = self.conexion.cursor()
             return True

@@ -12,7 +12,7 @@ import sys
 # Agregar el directorio raíz al PYTHONPATH
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.config.settings import PARAMETROS_BD, CONFIG_TABLAS, CAMPOS_API, COLUMNAS_FECHA, API_URLS, CAMPOS_API_ACTOR_VIAL
+from src.config.settings import get_database_params, CONFIG_TABLAS, CAMPOS_API, COLUMNAS_FECHA, API_URLS, CAMPOS_API_ACTOR_VIAL
 
 class ModeloActualizacion:
     def __init__(self):
@@ -56,7 +56,10 @@ class ModeloActualizacion:
     def insertar_registros(self, df, config_tabla, callback_progreso=None):
         """Inserta los registros en la base de datos"""
         try:
-            conn = psycopg2.connect(**PARAMETROS_BD)
+            config = get_database_params()
+            if config is None:
+                raise Exception("No hay configuración de base de datos. Por favor, configure la base de datos primero.")
+            conn = psycopg2.connect(**config)
             cursor = conn.cursor()
             
             # Mapear los nombres de columnas de la API a los nombres de la base de datos
@@ -267,7 +270,10 @@ class ModeloActualizacion:
     def get_latest_objectid(self, tabla):
         """Obtiene el ObjectID más reciente de la tabla especificada"""
         try:
-            conn = psycopg2.connect(**PARAMETROS_BD)
+            config = get_database_params()
+            if config is None:
+                raise Exception("No hay configuración de base de datos. Por favor, configure la base de datos primero.")
+            conn = psycopg2.connect(**config)
             cursor = conn.cursor()
             
             nombre_tabla = CONFIG_TABLAS[tabla]['nombre_tabla']

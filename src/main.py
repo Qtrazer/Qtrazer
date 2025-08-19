@@ -27,6 +27,8 @@ from src.views.splash_view import SplashView
 
 def main():
     """Función principal que inicia la aplicación."""
+    print("DEBUG: Iniciando aplicación...")
+    
     # Crear ventana principal
     ventana_principal = tk.Tk()
     ventana_principal.withdraw()  # Ocultar la ventana principal temporalmente

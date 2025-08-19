@@ -1,9 +1,102 @@
 """Configuración de la aplicación."""
 import os
+import sys
 from dotenv import load_dotenv
 
-# Cargar variables de entorno
-load_dotenv()
+def get_database_config():
+    """Configuración inteligente basada en el entorno de ejecución"""
+    
+    if getattr(sys, 'frozen', False):
+        # EJECUTABLE (.exe) - desde cualquier ubicación
+        print("Ejecutando desde ejecutable (.exe)")
+        
+        # Intentar cargar configuración guardada previamente
+        saved_config = load_saved_config_from_file()
+        if saved_config:
+            print("Configuración guardada encontrada y cargada automáticamente")
+            return saved_config
+        else:
+            print("No hay configuración previa, se mostrará interfaz de configuración")
+            return None
+    else:
+        # CÓDIGO FUENTE (VS Code, terminal)
+        print("Ejecutando desde código fuente (desarrollo)")
+        
+        # Intentar cargar configuración guardada previamente
+        saved_config = load_saved_config_from_file()
+        if saved_config:
+            print("Configuración guardada encontrada y cargada automáticamente")
+            return saved_config
+        
+        if os.path.exists('.env'):
+            print("Archivo .env encontrado, cargando...")
+            load_dotenv()
+            return {
+                'dbname': os.getenv('DB_NAME', 'Siniestros'),
+                'user': os.getenv('DB_USER', 'Analyst'),
+                'password': os.getenv('DB_PASSWORD', ''),
+                'host': os.getenv('DB_HOST', '190.60.210.154'),
+                'port': os.getenv('DB_PORT', '5432')
+            }
+        else:
+            print("Archivo .env no encontrado, usando valores por defecto")
+            return {
+                'dbname': 'Siniestros',
+                'user': 'Analyst',
+                'password': '',
+                'host': '190.60.210.154',
+                'port': '5432'
+            }
+
+def load_saved_config_from_file():
+    """Carga la configuración guardada desde el archivo JSON"""
+    try:
+        import json
+        import os
+        
+        # Determinar la ruta del archivo de configuración
+        if getattr(sys, 'frozen', False):
+            # Si es ejecutable (.exe), buscar en el directorio del usuario
+            config_dir = os.path.expanduser("~\\AppData\\Local\\Qtrazer")
+        else:
+            # Si es desarrollo, buscar en el directorio del proyecto
+            config_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        
+        config_file = os.path.join(config_dir, 'qtrazer_config.json')
+        
+        # Verificar si existe el archivo de configuración
+        if os.path.exists(config_file):
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            print(f"Configuración cargada desde: {config_file}")
+            return config
+        else:
+            print(f"Archivo de configuración no encontrado: {config_file}")
+            return None
+            
+    except Exception as e:
+        print(f"Error al cargar archivo de configuración: {str(e)}")
+        return None
+
+# Cargar configuración inicial
+PARAMETROS_BD = get_database_config()
+
+def update_database_config(new_config):
+    """Actualiza la configuración de la base de datos dinámicamente"""
+    global PARAMETROS_BD
+    PARAMETROS_BD = new_config
+    print("Configuración de base de datos actualizada dinámicamente")
+
+def get_current_database_config():
+    """Retorna la configuración actual de la base de datos"""
+    return PARAMETROS_BD
+
+def get_database_params():
+    """Función que siempre retorna la configuración actual (para uso en otros módulos)"""
+    # Si PARAMETROS_BD es None, intentar obtener configuración
+    if PARAMETROS_BD is None:
+        return get_database_config()
+    return PARAMETROS_BD
 
 # Configuración de la interfaz
 CONFIG_INTERFAZ = {
@@ -13,14 +106,8 @@ CONFIG_INTERFAZ = {
     'tamaño_ventana_actualizacion': '600x400'
 }
 
-# Configuración de la base de datos
-PARAMETROS_BD = {
-    'dbname': os.getenv('DB_NAME', ''),
-    'user': os.getenv('DB_USER', ''),
-    'password': os.getenv('DB_PASSWORD', ''),
-    'host': os.getenv('DB_HOST', ''),
-    'port': os.getenv('DB_PORT', '5432')
-}
+# Configuración de la base de datos (se define arriba en get_database_config())
+# PARAMETROS_BD ya está definido arriba
 
 # Configuración de las tablas
 CONFIG_TABLAS = {

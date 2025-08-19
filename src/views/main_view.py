@@ -102,6 +102,15 @@ class VistaPrincipal:
         )
         query_button.pack(side=tk.LEFT, padx=20, ipadx=20, ipady=10)
 
+        # Botón Configuración de Base de Datos
+        config_button = ttk.Button(
+            button_frame,
+            text="Credenciales BD",
+            command=self.mostrar_configuracion,
+            style="Qtrazer.TButton"
+        )
+        config_button.pack(side=tk.LEFT, padx=20, ipadx=20, ipady=10)
+
         # Frame contenedor para el botón de finalizar sesión y el texto legal
         bottom_container = ttk.Frame(main_frame)
         bottom_container.pack(side=tk.BOTTOM, fill=tk.X, pady=(20, 10))
@@ -158,4 +167,9 @@ class VistaPrincipal:
         """Muestra la vista de consulta."""
         from src.views.query_view import VistaConsulta
         ventana_consulta = tk.Toplevel(self.root)
-        VistaConsulta(ventana_consulta, self.root, self.controlador) 
+        VistaConsulta(ventana_consulta, self.root, self.controlador)
+    
+    def mostrar_configuracion(self):
+        """Muestra la vista de configuración de base de datos."""
+        from src.views.config_view import ConfigView
+        ConfigView(self.root) 

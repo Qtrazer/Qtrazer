@@ -1,8 +1,11 @@
 docs/
 tests/
+build/
 requirements-testing.txt
 pytest.ini
+qtrazer_config.json
 
 # Variables de entorno
 .env
 *.env
+test_config.py
