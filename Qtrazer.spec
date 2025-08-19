@@ -24,16 +24,22 @@ a = Analysis(
         'pandas',
         'requests',
         'selenium',
-        'tkcalendar'
+        'tkcalendar',
+        'cryptography',
+        'cffi',
+        'pycparser',
+        'ssl',
+        'hashlib'
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['tkinter.test', 'unittest', 'test'],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
+    collect_submodules=['PIL', 'numpy', 'pandas'],
 )
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
@@ -50,7 +56,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    upx_exclude=[],
+    upx_exclude=['libcrypto-3.dll', 'libssl-3.dll'],
     runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,
