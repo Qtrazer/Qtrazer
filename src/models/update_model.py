@@ -33,24 +33,70 @@ class ModeloActualizacion:
 
     def formatear_fechas(self, df):
         """Formatea las columnas de fecha al formato correcto para PostgreSQL"""
+        print(f"DEBUG: Iniciando formateo de fechas. Columnas: {list(df.columns)}")
+        
         for columna in COLUMNAS_FECHA:
-            if columna in df.columns and columna != 'FECHA_NACIMIENTO':  # Excluir FECHA_NACIMIENTO
+            if columna in df.columns:
+                print(f"DEBUG: Procesando columna {columna}")
+                print(f"DEBUG: Valores únicos antes de limpieza: {df[columna].unique()[:10]}")
+                
                 try:
-                    # Convertir de milisegundos a datetime
-                    df[columna] = pd.to_datetime(df[columna], unit='ms')
+                    # Limpiar la columna: reemplazar cadenas vacías y valores inválidos con None
+                    df[columna] = df[columna].replace('', None)
+                    df[columna] = df[columna].replace('null', None)
+                    df[columna] = df[columna].replace('NULL', None)
+                    
+                    print(f"DEBUG: Valores únicos después de limpieza: {df[columna].unique()[:10]}")
+                    
+                    # Verificar si la columna tiene valores válidos después de la limpieza
+                    if df[columna].isna().all():
+                        # Si todos los valores son NaN/None, mantener como None
+                        print(f"DEBUG: Todos los valores de {columna} son None/NaN")
+                        df[columna] = None
+                        continue
+                    
+                    # Convertir valores no nulos de milisegundos a datetime
+                    mask_not_null = df[columna].notna()
+                    if mask_not_null.any():
+                        # Verificar que los valores sean numéricos (timestamps)
+                        valores_not_null = df.loc[mask_not_null, columna]
+                        
+                        print(f"DEBUG: Valores no nulos de {columna}: {valores_not_null.unique()[:5]}")
+                        
+                        # Filtrar solo valores que sean numéricos y mayores a 0
+                        mask_numeric = pd.to_numeric(valores_not_null, errors='coerce').notna()
+                        mask_positive = pd.to_numeric(valores_not_null, errors='coerce') > 0
+                        mask_valid = mask_numeric & mask_positive
+                        
+                        print(f"DEBUG: Máscara válida para {columna}: {mask_valid.sum()} valores válidos de {len(mask_valid)}")
+                        
+                        if mask_valid.any():
+                            # Convertir de milisegundos a datetime solo para valores válidos
+                            df.loc[mask_not_null & mask_valid, columna] = pd.to_datetime(
+                                df.loc[mask_not_null & mask_valid, columna], 
+                                unit='ms'
+                            )
+                            
+                            # Formatear según el tipo de columna
+                            if columna in ['FECHA_OCURRENCIA_ACC', 'FECHA_POSTERIOR_MUERTE', 'FECHA_NACIMIENTO']:
+                                # Formato DATE: YYYY-MM-DD
+                                df.loc[mask_not_null & mask_valid, columna] = df.loc[mask_not_null & mask_valid, columna].dt.strftime('%Y-%m-%d')
+                            elif columna in ['FECHA_HORA_ACC']:
+                                # Formato TIMESTAMP: YYYY-MM-DD HH:MM:SS
+                                df.loc[mask_not_null & mask_valid, columna] = df.loc[mask_not_null & mask_valid, columna].dt.strftime('%Y-%m-%d %H:%M:%S')
+                        
+                        # Convertir valores inválidos a None
+                        df.loc[mask_not_null & ~mask_valid, columna] = None
                     
                     # Reemplazar NaT con None (que se convertirá a NULL en PostgreSQL)
                     df[columna] = df[columna].where(df[columna].notna(), None)
                     
-                    # Formatear según el tipo de columna
-                    if columna in ['FECHA_OCURRENCIA_ACC', 'FECHA_POSTERIOR_MUERTE']:
-                        # Formato DATE: YYYY-MM-DD
-                        df[columna] = df[columna].dt.strftime('%Y-%m-%d')
-                    elif columna in ['FECHA_HORA_ACC']:
-                        # Formato TIMESTAMP: YYYY-MM-DD HH:MM:SS
-                        df[columna] = df[columna].dt.strftime('%Y-%m-%d %H:%M:%S')
+                    print(f"DEBUG: Valores finales de {columna}: {df[columna].unique()[:10]}")
+                    
                 except Exception as e:
                     print(f"\nAdvertencia: No se pudo formatear la columna {columna}: {str(e)}")
+                    # En caso de error, convertir a None para evitar errores de inserción
+                    df[columna] = None
         return df
 
     def insertar_registros(self, df, config_tabla, callback_progreso=None):
@@ -154,6 +200,15 @@ class ModeloActualizacion:
             # Renombrar las columnas del DataFrame
             df = df.rename(columns=mapeo_columnas)
             
+            # Debug: Verificar valores de fecha_nacimiento después del mapeo
+            if 'fecha_nacimiento' in df.columns:
+                print(f"DEBUG: Valores de fecha_nacimiento después del mapeo:")
+                print(f"DEBUG: Tipo: {df['fecha_nacimiento'].dtype}")
+                print(f"DEBUG: Muestra: {df['fecha_nacimiento'].head(5).tolist()}")
+                print(f"DEBUG: Valores únicos: {df['fecha_nacimiento'].unique()[:10]}")
+                print(f"DEBUG: ¿Hay cadenas vacías?: {'Sí' if (df['fecha_nacimiento'] == '').any() else 'No'}")
+                print(f"DEBUG: ¿Hay valores None?: {'Sí' if df['fecha_nacimiento'].isna().any() else 'No'}")
+            
             # Asegurar que todos los campos numéricos se manejen correctamente
             df['objectid'] = df['objectid'].fillna(0).astype(int)
             
@@ -221,6 +276,19 @@ class ModeloActualizacion:
                 
                 for _, fila in lote.iterrows():
                     valores = [fila[col] for col in columnas]
+                    
+                    # Debug: Verificar valores de fecha_nacimiento antes de insertar
+                    if 'fecha_nacimiento' in columnas:
+                        idx_fecha = columnas.index('fecha_nacimiento')
+                        valor_fecha = valores[idx_fecha]
+                        if valor_fecha == '' or valor_fecha is None:
+                            print(f"DEBUG: Registro con fecha_nacimiento problemática: {valor_fecha}")
+                            print(f"DEBUG: Todos los valores del registro: {valores}")
+                            # Reemplazar cadena vacía con None
+                            if valor_fecha == '':
+                                valores[idx_fecha] = None
+                                print(f"DEBUG: Reemplazado '' con None")
+                    
                     cursor.execute(consulta, valores)
                     if cursor.rowcount > 0:
                         registros_insertados += 1
