@@ -31,6 +31,45 @@ class ModeloActualizacion:
             return self.DIAS.get(dia.upper(), 0)
         return 0
 
+    def obtener_campos_fecha_por_tabla(self, tabla):
+        """Obtiene los campos de fecha específicos para cada tabla"""
+        campos_fecha_por_tabla = {
+            'Accidente': ['fecha_ocurrencia_acc', 'fecha_hora_acc'],
+            'ActorVial': ['fecha_posterior_muerte', 'fecha_nacimiento'],
+            'Causa': [],  # No tiene campos de fecha
+            'AccidenteVehiculo': [],  # No tiene campos de fecha
+            'Accidente_via': []  # No tiene campos de fecha
+        }
+        return campos_fecha_por_tabla.get(tabla, [])
+
+    def limpiar_valores_fecha(self, df, campos_fecha):
+        """Limpia valores vacíos e inválidos en campos de fecha para todas las tablas"""
+        print(f"DEBUG: Limpiando campos de fecha: {campos_fecha}")
+        
+        for columna in campos_fecha:
+            if columna in df.columns:
+                print(f"DEBUG: Procesando columna {columna}")
+                print(f"DEBUG: Valores únicos antes de limpieza: {df[columna].unique()[:10]}")
+                
+                try:
+                    # Limpiar la columna: reemplazar cadenas vacías y valores inválidos con None
+                    df[columna] = df[columna].replace('', None)
+                    df[columna] = df[columna].replace('null', None)
+                    df[columna] = df[columna].replace('NULL', None)
+                    df[columna] = df[columna].replace('None', None)
+                    
+                    # Convertir valores que son solo espacios en blanco a None
+                    df[columna] = df[columna].apply(lambda x: None if isinstance(x, str) and x.strip() == '' else x)
+                    
+                    print(f"DEBUG: Valores únicos después de limpieza: {df[columna].unique()[:10]}")
+                    
+                except Exception as e:
+                    print(f"\nAdvertencia: No se pudo limpiar la columna {columna}: {str(e)}")
+                    # En caso de error, convertir a None para evitar errores de inserción
+                    df[columna] = None
+        
+        return df
+
     def formatear_fechas(self, df):
         """Formatea las columnas de fecha al formato correcto para PostgreSQL"""
         print(f"DEBUG: Iniciando formateo de fechas. Columnas: {list(df.columns)}")
@@ -45,6 +84,10 @@ class ModeloActualizacion:
                     df[columna] = df[columna].replace('', None)
                     df[columna] = df[columna].replace('null', None)
                     df[columna] = df[columna].replace('NULL', None)
+                    df[columna] = df[columna].replace('None', None)
+                    
+                    # Convertir valores que son solo espacios en blanco a None
+                    df[columna] = df[columna].apply(lambda x: None if isinstance(x, str) and x.strip() == '' else x)
                     
                     print(f"DEBUG: Valores únicos después de limpieza: {df[columna].unique()[:10]}")
                     
@@ -245,10 +288,20 @@ class ModeloActualizacion:
                 df['codigo_via'] = df['codigo_via'].fillna(0).astype(int)
 
             
-            # Reemplazar valores nulos con cadenas vacías para campos de texto
+            # Obtener campos de fecha para la tabla actual
+            campos_fecha = self.obtener_campos_fecha_por_tabla(config_tabla)
+            
+            # Limpiar campos de fecha específicos
+            if campos_fecha:
+                df = self.limpiar_valores_fecha(df, campos_fecha)
+            
+            # Limpiar valores vacíos e inválidos en todas las columnas
             for col in df.columns:
                 if df[col].dtype == 'object':
-                    df[col] = df[col].fillna('')
+                    # Para campos de fecha, ya fueron limpiados arriba
+                    if col not in campos_fecha:
+                        # Para otros campos de texto, reemplazar con cadenas vacías
+                        df[col] = df[col].fillna('')
             
             # Preparar la consulta de inserción
             columnas = CONFIG_TABLAS[config_tabla]['columnas']
@@ -277,17 +330,12 @@ class ModeloActualizacion:
                 for _, fila in lote.iterrows():
                     valores = [fila[col] for col in columnas]
                     
-                    # Debug: Verificar valores de fecha_nacimiento antes de insertar
-                    if 'fecha_nacimiento' in columnas:
-                        idx_fecha = columnas.index('fecha_nacimiento')
-                        valor_fecha = valores[idx_fecha]
-                        if valor_fecha == '' or valor_fecha is None:
-                            print(f"DEBUG: Registro con fecha_nacimiento problemática: {valor_fecha}")
-                            print(f"DEBUG: Todos los valores del registro: {valores}")
-                            # Reemplazar cadena vacía con None
-                            if valor_fecha == '':
-                                valores[idx_fecha] = None
-                                print(f"DEBUG: Reemplazado '' con None")
+                    # Limpiar valores vacíos e inválidos: reemplazar con None
+                    for i, valor in enumerate(valores):
+                        if valor == '' or valor == 'null' or valor == 'NULL' or valor == 'None':
+                            valores[i] = None
+                        elif isinstance(valor, str) and valor.strip() == '':
+                            valores[i] = None
                     
                     cursor.execute(consulta, valores)
                     if cursor.rowcount > 0:
@@ -484,9 +532,14 @@ class ModeloActualizacion:
             # Crear DataFrame con los registros
             df = pd.DataFrame(new_records)
             
-            # Formatear fechas si es necesario
+            # Formatear fechas si es necesario (solo para tablas que tienen campos de fecha complejos)
             if tabla in ['Accidente', 'ActorVial']:
                 df = self.formatear_fechas(df)
+            
+            # Aplicar limpieza básica de fechas para todas las tablas que tengan campos de fecha
+            campos_fecha = self.obtener_campos_fecha_por_tabla(tabla)
+            if campos_fecha:
+                df = self.limpiar_valores_fecha(df, campos_fecha)
             
             # Ordenar por OBJECTID
             df = df.sort_values('OBJECTID')
