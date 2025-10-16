@@ -268,9 +268,17 @@ class VistaActualizacion:
     def cerrar_ventana(self):
         """Cierra la ventana de actualización."""
         if self.controlador.esta_actualizando():
-            messagebox.showwarning(
+            # Preguntar al usuario si quiere cancelar la actualización
+            respuesta = messagebox.askyesno(
                 "Actualización en Progreso",
-                "No se puede cerrar la ventana mientras hay una actualización en curso."
+                "Hay una actualización en curso. ¿Desea cancelar la actualización y cerrar la ventana?"
             )
-            return
-        self.root.destroy() 
+            if respuesta:
+                # Cancelar la actualización
+                self.controlador.cancelar_actualizacion()
+                self.agregar_log("Actualización cancelada por el usuario")
+                self.finalizar_actualizacion()
+                self.root.destroy()
+            # Si el usuario dice "No", no hacer nada (mantener la ventana abierta)
+        else:
+            self.root.destroy() 

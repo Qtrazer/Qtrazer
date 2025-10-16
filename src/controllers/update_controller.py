@@ -24,35 +24,45 @@ class ControladorActualizacion:
                 if callback_progreso:
                     callback_progreso("Iniciando actualización de la tabla 'Accidente'...", 0)
                 
-                resultado_accidente = self.modelo.actualizar_datos('Accidente', callback_progreso)
+                resultado_accidente = self.modelo.actualizar_datos('Accidente', callback_progreso, self)
                 
                 if resultado_accidente:
+                    # Verificar cancelación antes de continuar
+                    if not self.actualizacion_en_progreso:
+                        print("DEBUG: Actualización cancelada después de tabla Accidente")
+                        return False
+                        
                     # Segunda actualización: Accidente Via
                     if callback_progreso:
                         callback_progreso("Iniciando actualización de la tabla 'Accidente Via'...", 0)
                     
-                    resultado_accidente_via = self.modelo.actualizar_datos('Accidente_via', callback_progreso)
+                    resultado_accidente_via = self.modelo.actualizar_datos('Accidente_via', callback_progreso, self)
                     
                     if resultado_accidente_via:
+                        # Verificar cancelación antes de continuar
+                        if not self.actualizacion_en_progreso:
+                            print("DEBUG: Actualización cancelada después de tabla Accidente_via")
+                            return False
+                            
                         # Tercera actualización: Accidente Causa
                         if callback_progreso:
                             callback_progreso("Iniciando actualización de la tabla 'Accidente Causa'...", 0)
                         
-                        resultado_accidente_causa = self.modelo.actualizar_datos('Causa', callback_progreso)
+                        resultado_accidente_causa = self.modelo.actualizar_datos('Causa', callback_progreso, self)
                         
                         if resultado_accidente_causa:
                             # Cuarta actualización: Accidente Vehiculo
                             if callback_progreso:
                                 callback_progreso("Iniciando actualización de la tabla 'Accidente Vehiculo'...", 0)
                             
-                            resultado_accidente_vehiculo = self.modelo.actualizar_datos('AccidenteVehiculo', callback_progreso)
+                            resultado_accidente_vehiculo = self.modelo.actualizar_datos('AccidenteVehiculo', callback_progreso, self)
                             
                             if resultado_accidente_vehiculo:
                                 # Quinta actualización: Actor Vial
                                 if callback_progreso:
                                     callback_progreso("Iniciando actualización de la tabla 'Actor Vial'...", 0)
                                 
-                                resultado_actor_vial = self.modelo.actualizar_datos('ActorVial', callback_progreso)
+                                resultado_actor_vial = self.modelo.actualizar_datos('ActorVial', callback_progreso, self)
                                 
                                 if resultado_actor_vial:
                                     if callback_progreso:
@@ -97,8 +107,14 @@ class ControladorActualizacion:
     def cancelar_actualizacion(self):
         """Cancela la actualización en curso."""
         if self.actualizacion_en_progreso:
+            print("DEBUG: Cancelando actualización...")
             self.actualizacion_en_progreso = False
-            if self.thread_actualizacion:
-                self.thread_actualizacion.join()
+            self.tabla_actual = None
+            
+            # No hacer join() aquí porque puede bloquear la interfaz
+            # El hilo se detendrá naturalmente cuando vea que actualizacion_en_progreso es False
+            if self.thread_actualizacion and self.thread_actualizacion.is_alive():
+                print("DEBUG: Hilo de actualización marcado para cancelación")
+            
             return True
         return False 

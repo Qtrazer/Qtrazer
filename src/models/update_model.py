@@ -389,18 +389,56 @@ class ModeloActualizacion:
             config = get_database_params()
             if config is None:
                 raise Exception("No hay configuración de base de datos. Por favor, configure la base de datos primero.")
+            
+            print(f"DEBUG: Conectando a base de datos: {config['dbname']} en {config['host']}")
+            
             conn = psycopg2.connect(**config)
             cursor = conn.cursor()
             
             nombre_tabla = CONFIG_TABLAS[tabla]['nombre_tabla']
-            cursor.execute(f"SELECT MAX(objectid) FROM {nombre_tabla}")
-            latest_objectid = cursor.fetchone()[0]
+            print(f"DEBUG: Buscando ObjectID más reciente en tabla: {nombre_tabla}")
+            
+            # Verificar si la tabla existe y tiene datos
+            cursor.execute(f"""
+                SELECT COUNT(*) 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = '{nombre_tabla}'
+            """)
+            tabla_existe = cursor.fetchone()[0] > 0
+            
+            if not tabla_existe:
+                print(f"DEBUG: La tabla {nombre_tabla} no existe, usando ObjectID = 0 para obtener todos los datos")
+                latest_objectid = 0
+            else:
+                # Verificar si la tabla tiene datos
+                cursor.execute(f"SELECT COUNT(*) FROM {nombre_tabla}")
+                total_registros = cursor.fetchone()[0]
+                
+                if total_registros == 0:
+                    print(f"DEBUG: La tabla {nombre_tabla} está vacía, usando ObjectID = 0 para obtener todos los datos")
+                    latest_objectid = 0
+                else:
+                    # Obtener el ObjectID más reciente
+                    cursor.execute(f"SELECT MAX(objectid) FROM {nombre_tabla}")
+                    result = cursor.fetchone()
+                    
+                    if result is None or result[0] is None:
+                        print(f"DEBUG: No se encontró ObjectID válido en {nombre_tabla}, usando ObjectID = 0")
+                        latest_objectid = 0
+                    else:
+                        latest_objectid = result[0]
+                        print(f"DEBUG: ObjectID más reciente encontrado en {nombre_tabla}: {latest_objectid}")
+            
             cursor.close()
             conn.close()
             return latest_objectid
+            
         except Exception as e:
             print(f"Error al obtener el ObjectID más reciente: {str(e)}")
-            return None
+            # En caso de error, usar ObjectID = 0 para obtener todos los datos
+            print("DEBUG: Usando ObjectID = 0 debido a error en consulta")
+            return 0
 
     def get_new_records(self, api_url, last_objectid, campos_api, callback_progreso=None):
         """Obtiene los registros completos mayores al último ObjectID con paginación"""
@@ -408,9 +446,19 @@ class ModeloActualizacion:
         offset = 0
         total_fetched = 0
         
+        # Determinar la condición WHERE según el ObjectID
+        if last_objectid == 0:
+            # Si ObjectID es 0, significa que la tabla está vacía, obtener todos los datos
+            where_condition = "1=1"  # Obtener todos los registros
+            print("DEBUG: Tabla vacía detectada, obteniendo todos los registros desde el inicio")
+        else:
+            # Si hay ObjectID, obtener solo los registros nuevos
+            where_condition = f"OBJECTID > {last_objectid}"
+            print(f"DEBUG: Obteniendo registros con ObjectID > {last_objectid}")
+        
         # Primero obtenemos el total de registros nuevos
         params = {
-            'where': f"OBJECTID > {last_objectid}",
+            'where': where_condition,
             'returnCountOnly': 'true',
             'f': 'json'
         }
@@ -427,7 +475,7 @@ class ModeloActualizacion:
             # Obtenemos los registros por lotes
             while total_fetched < total_records:
                 params = {
-                    'where': f"OBJECTID > {last_objectid}",
+                    'where': where_condition,
                     'outFields': ','.join(campos_api),
                     'f': 'json',
                     'returnGeometry': 'false',
@@ -476,9 +524,14 @@ class ModeloActualizacion:
             print(f"Error al obtener los nuevos registros: {str(e)}")
             return []
 
-    def actualizar_datos(self, tabla, callback_progreso=None):
+    def actualizar_datos(self, tabla, callback_progreso=None, controlador=None):
         """Actualiza los datos de la tabla especificada"""
         try:
+            # Verificar si la actualización ha sido cancelada
+            if controlador and not controlador.esta_actualizando():
+                print(f"DEBUG: Actualización de {tabla} cancelada")
+                return False
+                
             # Obtener el total de registros en la API
             api_url = API_URLS[tabla]
             total_records = self.get_total_records(api_url)
@@ -493,9 +546,18 @@ class ModeloActualizacion:
                     callback_progreso("No se pudo obtener el ObjectID más reciente", 0)
                 return False
             
-            if callback_progreso:
-                callback_progreso(f"ObjectID más reciente encontrado: {latest_objectid}", 0)
+            if latest_objectid == 0:
+                if callback_progreso:
+                    callback_progreso("Tabla vacía detectada - se obtendrán todos los datos desde el inicio", 0)
+            else:
+                if callback_progreso:
+                    callback_progreso(f"ObjectID más reciente encontrado: {latest_objectid}", 0)
             
+            # Verificar cancelación antes de obtener registros
+            if controlador and not controlador.esta_actualizando():
+                print(f"DEBUG: Actualización de {tabla} cancelada antes de obtener registros")
+                return False
+                
             # Obtener los nuevos registros
             campos_api = CAMPOS_API if tabla == 'Accidente' else (
                 CAMPOS_API_ACTOR_VIAL if tabla == 'ActorVial' else (
