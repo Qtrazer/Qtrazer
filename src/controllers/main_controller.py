@@ -42,7 +42,7 @@ class ControladorPrincipal:
                 return None
 
     def consultar_siniestros(self, fecha_inicio, fecha_fin, callback_progreso=None):
-        """Consulta siniestros en un rango de fechas en un hilo separado - OPTIMIZADO."""
+        """Consulta siniestros en un rango de fechas en un hilo separado - SIN LÍMITES AUTOMÁTICOS."""
         if self.consulta_en_progreso:
             return None
 
@@ -51,8 +51,7 @@ class ControladorPrincipal:
 
         def ejecutar_consulta():
             try:
-                # Usar método optimizado con límite para consultas grandes
-                # Calcular diferencia de días para determinar si usar límite
+                # Calcular diferencia de días para informar al usuario
                 from datetime import datetime
                 if isinstance(fecha_inicio, str):
                     fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d')
@@ -66,14 +65,14 @@ class ControladorPrincipal:
                 
                 diferencia_dias = (fecha_fin_obj - fecha_inicio_obj).days
                 
-                # Si el rango es muy grande (> 1 año), usar límite
-                limite = None
-                if diferencia_dias > 365:
-                    limite = 50000  # Límite para rangos muy grandes
-                    if callback_progreso:
-                        callback_progreso(f"Rango grande detectado ({diferencia_dias} días). Aplicando límite de {limite} registros.", 0)
+                # Informar al usuario sobre el rango de consulta
+                if callback_progreso:
+                    callback_progreso(f"Consultando rango de {diferencia_dias} días. Obteniendo todos los registros...", 0)
                 
-                resultados = self.gestor_bd.obtener_siniestros_por_fecha_optimizado(fecha_inicio, fecha_fin, limite)
+                # Usar método optimizado SIN límite automático
+                # Esto permitirá obtener todos los registros del rango seleccionado
+                resultados = self.gestor_bd.obtener_siniestros_por_fecha(fecha_inicio, fecha_fin)
+                
                 if resultados is None:
                     # Si no hay resultados, verificar si fue por error de conexión
                     raise Exception("No fue posible establecer conexión con la base de datos")
