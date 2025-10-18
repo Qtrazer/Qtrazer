@@ -120,6 +120,23 @@ CREATE INDEX IF NOT EXISTS idx_vehiculo_formulario ON vm_acc_vehiculo(formulario
 CREATE INDEX IF NOT EXISTS idx_vial_formulario ON vm_acc_vial(formulario);
 
 -- ============================================================================
+-- ÍNDICES ADICIONALES PARA OPTIMIZACIÓN DE CONSULTAS
+-- ============================================================================
+
+-- Índices compuestos para mejorar el rendimiento de las consultas por fecha
+CREATE INDEX IF NOT EXISTS idx_accidente_fecha_formulario ON accidente(fecha_ocurrencia_acc, formulario);
+
+-- Índices adicionales para las tablas relacionadas
+CREATE INDEX IF NOT EXISTS idx_actor_vial_estado ON vm_acc_actor_vial(estado);
+CREATE INDEX IF NOT EXISTS idx_actor_vial_condicion ON vm_acc_actor_vial(condicion_a);
+
+-- Índices para optimizar las consultas de agregación
+CREATE INDEX IF NOT EXISTS idx_vehiculo_clase ON vm_acc_vehiculo(clase);
+CREATE INDEX IF NOT EXISTS idx_causa_tipo ON vm_acc_causa(tipo_causa);
+CREATE INDEX IF NOT EXISTS idx_vial_material ON vm_acc_vial(material);
+CREATE INDEX IF NOT EXISTS idx_vial_estado ON vm_acc_vial(estado);
+
+-- ============================================================================
 -- CREACIÓN DE USUARIO Y ASIGNACIÓN DE PERMISOS
 -- ============================================================================
 

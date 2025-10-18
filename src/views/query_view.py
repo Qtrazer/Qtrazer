@@ -23,6 +23,10 @@ class VistaConsulta:
         self.resultados_completos = None
         self.filtros_activos = False
         
+        # Variables para controlar el ordenamiento
+        self.columna_ordenamiento = None
+        self.orden_descendente = True  # True = descendente, False = ascendente
+        
         # Listas predefinidas para los filtros
         self.lista_vehiculos = [
             "AMBULACIA", "AUTOMOVIL", "BICICLETA", "BICITAXI", "BUS",
@@ -211,6 +215,48 @@ class VistaConsulta:
         self.combo_causante['values'] = [''] + self.lista_causantes
         self.combo_causante.grid(row=1, column=3, padx=5, pady=5)
 
+        # Filtro de ID
+        ttk.Label(filtros_frame, text="ID:").grid(row=2, column=0, padx=5, pady=5)
+        self.combo_id = ttk.Combobox(filtros_frame, state="readonly", width=30)
+        self.combo_id.grid(row=2, column=1, padx=5, pady=5)
+
+        # Filtro de Formulario
+        ttk.Label(filtros_frame, text="Formulario:").grid(row=2, column=2, padx=5, pady=5)
+        self.combo_formulario = ttk.Combobox(filtros_frame, state="readonly", width=30)
+        self.combo_formulario.grid(row=2, column=3, padx=5, pady=5)
+
+        # Filtro de Fecha - Rango
+        ttk.Label(filtros_frame, text="Fecha Inicial:").grid(row=3, column=0, padx=5, pady=5)
+        self.fecha_filtro_inicio = DateEntry(
+            filtros_frame,
+            width=12,
+            background='darkblue',
+            foreground='white',
+            borderwidth=2,
+            date_pattern='dd/mm/yyyy'
+        )
+        self.fecha_filtro_inicio.grid(row=3, column=1, padx=5, pady=5)
+        
+        ttk.Label(filtros_frame, text="Fecha Final:").grid(row=3, column=2, padx=5, pady=5)
+        self.fecha_filtro_fin = DateEntry(
+            filtros_frame,
+            width=12,
+            background='darkblue',
+            foreground='white',
+            borderwidth=2,
+            date_pattern='dd/mm/yyyy'
+        )
+        self.fecha_filtro_fin.grid(row=3, column=3, padx=5, pady=5)
+
+        # Filtro de Hora - Rango
+        ttk.Label(filtros_frame, text="Hora Inicial:").grid(row=4, column=0, padx=5, pady=5)
+        self.hora_filtro_inicio = ttk.Combobox(filtros_frame, state="readonly", width=15)
+        self.hora_filtro_inicio.grid(row=4, column=1, padx=5, pady=5)
+        
+        ttk.Label(filtros_frame, text="Hora Final:").grid(row=4, column=2, padx=5, pady=5)
+        self.hora_filtro_fin = ttk.Combobox(filtros_frame, state="readonly", width=15)
+        self.hora_filtro_fin.grid(row=4, column=3, padx=5, pady=5)
+
         # Frame para botones de filtros
         filtros_button_frame = ttk.Frame(self.frame_filtros)
         filtros_button_frame.pack(pady=5)
@@ -262,9 +308,9 @@ class VistaConsulta:
 
         self.tree = ttk.Treeview(table_frame, columns=columnas, show="headings")
 
-        # Configurar columnas
+        # Configurar columnas con funcionalidad de ordenamiento
         for col in columnas:
-            self.tree.heading(col, text=col)
+            self.tree.heading(col, text=col, command=lambda c=col: self.ordenar_por_columna(c))
             self.tree.column(col, width=100, minwidth=50)
 
         # Ajustar anchos específicos para algunas columnas
@@ -306,11 +352,12 @@ class VistaConsulta:
         nav_frame.pack(pady=20)
 
         # Botón para exportar a Excel
-        ttk.Button(
+        self.boton_exportar = ttk.Button(
             nav_frame,
             text="Exportar a Excel",
             command=self.exportar_a_excel
-        ).pack(side=tk.LEFT, padx=10)
+        )
+        self.boton_exportar.pack(side=tk.LEFT, padx=10)
 
         # Botón para volver al inicio
         ttk.Button(
@@ -353,16 +400,28 @@ class VistaConsulta:
         try:
             # Obtener valores únicos para cada filtro
             localidades = sorted(set(str(resultado[4]).strip() for resultado in self.resultados_completos if resultado[4]))
+            ids = sorted(set(str(resultado[0]).strip() for resultado in self.resultados_completos if resultado[0]))
+            formularios = sorted(set(str(resultado[1]).strip() for resultado in self.resultados_completos if resultado[1]))
+            horas = sorted(set(str(resultado[3]).strip() for resultado in self.resultados_completos if resultado[3]))
             
-            # Actualizar combobox de localidad
+            # Actualizar comboboxes
             self.combo_localidad['values'] = [''] + localidades
+            self.combo_id['values'] = [''] + ids
+            self.combo_formulario['values'] = [''] + formularios
+            self.hora_filtro_inicio['values'] = [''] + horas
+            self.hora_filtro_fin['values'] = [''] + horas
             
-            # Los demás comboboxes ya tienen sus valores predefinidos
-            # Solo necesitamos limpiar sus selecciones actuales
+            # Limpiar selecciones actuales
             self.combo_localidad.set('')
             self.combo_vehiculo.set('')
             self.combo_estado.set('')
             self.combo_causante.set('')
+            self.combo_id.set('')
+            self.combo_formulario.set('')
+            self.fecha_filtro_inicio.set_date('01/01/2020')  # Fecha por defecto
+            self.fecha_filtro_fin.set_date('31/12/2030')     # Fecha por defecto
+            self.hora_filtro_inicio.set('')
+            self.hora_filtro_fin.set('')
 
         except Exception as e:
             print(f"Error al actualizar filtros: {str(e)}")
@@ -379,35 +438,99 @@ class VistaConsulta:
             vehiculo = self.combo_vehiculo.get()
             estado = self.combo_estado.get()
             causante = self.combo_causante.get()
+            id_filtro = self.combo_id.get()
+            formulario = self.combo_formulario.get()
+            fecha_inicio = self.fecha_filtro_inicio.get_date()
+            fecha_fin = self.fecha_filtro_fin.get_date()
+            hora_inicio = self.hora_filtro_inicio.get()
+            hora_fin = self.hora_filtro_fin.get()
 
             # Verificar si hay algún filtro seleccionado
-            if not any([localidad, vehiculo, estado, causante]):
+            # Para fechas, verificar si ambas están seleccionadas y son diferentes a los valores por defecto
+            fecha_filtro_activo = False
+            if fecha_inicio and fecha_fin:
+                # Verificar si las fechas son diferentes a los valores por defecto
+                fecha_inicio_default = fecha_inicio.strftime('%d/%m/%Y') == '01/01/2020'
+                fecha_fin_default = fecha_fin.strftime('%d/%m/%Y') == '31/12/2030'
+                fecha_filtro_activo = not (fecha_inicio_default and fecha_fin_default)
+            
+            if not any([localidad, vehiculo, estado, causante, id_filtro, formulario, hora_inicio, hora_fin, fecha_filtro_activo]):
                 messagebox.showinfo("Información", "Por favor seleccione al menos un filtro.")
                 return
 
-            # Filtrar resultados
-            resultados_filtrados = self.resultados_completos
+            # Filtrar resultados de manera progresiva
+            resultados_filtrados = self.resultados_completos.copy()
 
-            # Aplicar filtro de localidad
+            # PASO 1: Aplicar filtro de rango de fecha PRIMERO (si está activo)
+            if fecha_filtro_activo:
+                from datetime import datetime
+                try:
+                    # Convertir fechas a objetos datetime para comparación
+                    fecha_inicio_str = fecha_inicio.strftime('%Y-%m-%d')
+                    fecha_fin_str = fecha_fin.strftime('%Y-%m-%d')
+                    
+                    resultados_filtrados = [r for r in resultados_filtrados 
+                                          if r[2] and fecha_inicio_str <= str(r[2]).strip() <= fecha_fin_str]
+                    
+                    # Actualizar opciones de hora basadas en los datos filtrados por fecha
+                    self._actualizar_opciones_hora(resultados_filtrados)
+                    
+                except Exception as e:
+                    print(f"Error al filtrar por fecha: {str(e)}")
+
+            # PASO 2: Aplicar filtro de rango de hora (si está activo)
+            if hora_inicio and hora_fin:
+                try:
+                    # Convertir horas a formato comparable
+                    def hora_a_minutos(hora_str):
+                        if not hora_str:
+                            return 0
+                        try:
+                            # Asumir formato HH:MM o HH:MM:SS
+                            partes = str(hora_str).split(':')
+                            return int(partes[0]) * 60 + int(partes[1])
+                        except:
+                            return 0
+                    
+                    hora_inicio_min = hora_a_minutos(hora_inicio)
+                    hora_fin_min = hora_a_minutos(hora_fin)
+                    
+                    resultados_filtrados = [r for r in resultados_filtrados 
+                                          if r[3] and hora_inicio_min <= hora_a_minutos(r[3]) <= hora_fin_min]
+                    
+                except Exception as e:
+                    print(f"Error al filtrar por hora: {str(e)}")
+
+            # PASO 3: Aplicar filtros de otros campos basados en los datos ya filtrados
             if localidad:
                 resultados_filtrados = [r for r in resultados_filtrados if str(r[4]).strip() == localidad.strip()]
 
-            # Aplicar filtro de vehículo
             if vehiculo:
                 resultados_filtrados = [r for r in resultados_filtrados if vehiculo in str(r[5]).split(', ')]
 
-            # Aplicar filtro de estado
             if estado:
                 resultados_filtrados = [r for r in resultados_filtrados if estado in str(r[11]).split(', ')]
 
-            # Aplicar filtro de causante
             if causante:
                 resultados_filtrados = [r for r in resultados_filtrados if str(r[15]).strip() == causante.strip()]
+
+            if id_filtro:
+                resultados_filtrados = [r for r in resultados_filtrados if str(r[0]).strip() == id_filtro.strip()]
+
+            if formulario:
+                resultados_filtrados = [r for r in resultados_filtrados if str(r[1]).strip() == formulario.strip()]
+
+            # Actualizar opciones de todos los campos basadas en los datos filtrados
+            self._actualizar_opciones_filtros(resultados_filtrados)
 
             # Limpiar tabla actual
             for item in self.tree.get_children():
                 self.tree.delete(item)
 
+            # Aplicar ordenamiento si hay uno activo
+            if self.columna_ordenamiento:
+                resultados_filtrados = self._aplicar_ordenamiento(resultados_filtrados, self.columna_ordenamiento, self.orden_descendente)
+            
             # Mostrar resultados filtrados
             for resultado in resultados_filtrados:
                 # Convertir None a cadena vacía
@@ -432,19 +555,30 @@ class VistaConsulta:
             self.combo_vehiculo.set('')
             self.combo_estado.set('')
             self.combo_causante.set('')
+            self.combo_id.set('')
+            self.combo_formulario.set('')
+            self.fecha_filtro_inicio.set_date('01/01/2020')
+            self.fecha_filtro_fin.set_date('31/12/2030')
+            self.hora_filtro_inicio.set('')
+            self.hora_filtro_fin.set('')
 
             # Limpiar tabla actual
             for item in self.tree.get_children():
                 self.tree.delete(item)
 
+            # Aplicar ordenamiento si hay uno activo
+            resultados_a_mostrar = self.resultados_completos
+            if self.columna_ordenamiento:
+                resultados_a_mostrar = self._aplicar_ordenamiento(resultados_a_mostrar, self.columna_ordenamiento, self.orden_descendente)
+            
             # Mostrar todos los resultados
-            for resultado in self.resultados_completos:
+            for resultado in resultados_a_mostrar:
                 # Convertir None a cadena vacía
                 valores = ['' if valor is None else str(valor) for valor in resultado]
                 self.tree.insert("", tk.END, values=valores)
 
             self.filtros_activos = False
-            self.etiqueta_estado.config(text=f"Mostrando {len(self.resultados_completos)} registros")
+            self.etiqueta_estado.config(text=f"Mostrando {len(resultados_a_mostrar)} registros")
 
         except Exception as e:
             messagebox.showerror("Error", f"Error al limpiar filtros: {str(e)}")
@@ -462,6 +596,12 @@ class VistaConsulta:
         self.combo_vehiculo.set('')
         self.combo_estado.set('')
         self.combo_causante.set('')
+        self.combo_id.set('')
+        self.combo_formulario.set('')
+        self.fecha_filtro_inicio.set_date('01/01/2020')
+        self.fecha_filtro_fin.set_date('31/12/2030')
+        self.hora_filtro_inicio.set('')
+        self.hora_filtro_fin.set('')
 
         # Obtener fechas
         fecha_inicio = self.fecha_inicio.get_date()
@@ -580,43 +720,301 @@ class VistaConsulta:
         self.root.destroy()
 
     def exportar_a_excel(self):
-        """Exporta los datos actuales de la tabla a un archivo Excel."""
+        """Inicia el proceso de exportación a Excel en un hilo separado."""
         if not self.resultados_completos:
             messagebox.showwarning("Advertencia", "No hay datos para exportar.")
             return
 
+        # Verificar si ya hay una exportación en progreso
+        if hasattr(self, 'exportacion_en_progreso') and self.exportacion_en_progreso:
+            messagebox.showwarning("Advertencia", "Ya hay una exportación en progreso.")
+            return
+
+        # Obtener los datos actuales de la tabla
+        datos = []
+        for item in self.tree.get_children():
+            valores = self.tree.item(item)['values']
+            datos.append(valores)
+
+        if not datos:
+            messagebox.showwarning("Advertencia", "No hay datos para exportar.")
+            return
+
+        # Crear DataFrame
+        columnas = [
+            "ID", "Formulario", "Fecha", "Hora", "Localidad",
+            "Clases Vehículos", "Placas", "Condiciones Actores",
+            "Fallecidos", "Heridos", "Ilesos", "Estados",
+            "Géneros", "Edades", "Causante", "Causa", 
+            "Terreno Vía", "Estado Vía"
+        ]
+        df = pd.DataFrame(datos, columns=columnas)
+
+        # Generar nombre de archivo con fecha y hora
+        fecha_hora = datetime.now().strftime("%Y%m%d_%H%M%S")
+        nombre_archivo = f"siniestros_{fecha_hora}.xlsx"
+
+        # Abrir diálogo para guardar archivo
+        destino = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            initialfile=nombre_archivo,
+            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")]
+        )
+
+        if not destino:
+            return
+
+        # Configurar estado de exportación
+        self.exportacion_en_progreso = True
+        self.boton_exportar.config(state='disabled')
+        self.barra_progreso.config(mode='determinate')
+        self.barra_progreso['maximum'] = 100
+        self.barra_progreso['value'] = 0
+        self.barra_progreso.start()
+        self.etiqueta_estado.config(text="Exportando a Excel...")
+
+        # Iniciar exportación en hilo separado
+        threading.Thread(
+            target=self._exportar_a_excel_hilo,
+            args=(df, destino),
+            daemon=True
+        ).start()
+
+    def _exportar_a_excel_hilo(self, df, destino):
+        """Exporta los datos a Excel en un hilo separado."""
         try:
-            # Obtener los datos actuales de la tabla
-            datos = []
-            for item in self.tree.get_children():
-                valores = self.tree.item(item)['values']
-                datos.append(valores)
+            # Escritura robusta: archivo temporal en misma carpeta
+            carpeta_destino = os.path.dirname(destino) or os.getcwd()
+            nombre_tmp = f".__tmp_{os.path.basename(destino)}"
+            ruta_tmp = os.path.join(carpeta_destino, nombre_tmp)
 
-            # Crear DataFrame
-            columnas = [
-                "ID", "Formulario", "Fecha", "Hora", "Localidad",
-                "Clases Vehículos", "Placas", "Condiciones Actores",
-                "Fallecidos", "Heridos", "Ilesos", "Estados",
-                "Géneros", "Edades", "Causante", "Causa", 
-                "Terreno Vía", "Estado Vía"
-            ]
-            df = pd.DataFrame(datos, columns=columnas)
+            # Tamaño por hoja para grandes volúmenes
+            filas_por_hoja = 100000  # Excel soporta ~1,048,576 filas
+            total_filas = len(df)
 
-            # Generar nombre de archivo con fecha y hora
-            fecha_hora = datetime.now().strftime("%Y%m%d_%H%M%S")
-            nombre_archivo = f"siniestros_{fecha_hora}.xlsx"
+            try:
+                with pd.ExcelWriter(ruta_tmp, engine="openpyxl") as writer:
+                    if total_filas <= filas_por_hoja:
+                        # Actualizar progreso
+                        self.root.after(0, lambda: self._actualizar_progreso(50))
+                        df.to_excel(writer, sheet_name="Datos", index=False)
+                        self.root.after(0, lambda: self._actualizar_progreso(90))
+                    else:
+                        num_hojas = (total_filas + filas_por_hoja - 1) // filas_por_hoja
+                        progreso_por_hoja = 80 / num_hojas
+                        
+                        for i in range(num_hojas):
+                            inicio = i * filas_por_hoja
+                            fin = min((i + 1) * filas_por_hoja, total_filas)
+                            hoja = f"Datos_{i+1}"
+                            
+                            # Actualizar progreso
+                            progreso_actual = 10 + (i * progreso_por_hoja)
+                            self.root.after(0, lambda p=progreso_actual: self._actualizar_progreso(p))
+                            
+                            df.iloc[inicio:fin].to_excel(writer, sheet_name=hoja, index=False)
 
-            # Abrir diálogo para guardar archivo
-            archivo = filedialog.asksaveasfilename(
-                defaultextension=".xlsx",
-                initialfile=nombre_archivo,
-                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")]
-            )
-
-            if archivo:
-                # Exportar a Excel
-                df.to_excel(archivo, index=False)
-                messagebox.showinfo("Éxito", f"Los datos se han exportado correctamente a:\n{archivo}")
+                # Mover atómicamente al destino final
+                self.root.after(0, lambda: self._actualizar_progreso(95))
+                
+                if os.path.exists(destino):
+                    try:
+                        os.remove(destino)
+                    except Exception:
+                        pass
+                os.replace(ruta_tmp, destino)
+                
+                # Completar exportación
+                self.root.after(0, lambda: self._completar_exportacion(True, destino))
+                
+            finally:
+                # Limpiar temporal si quedó
+                if os.path.exists(ruta_tmp):
+                    try:
+                        os.remove(ruta_tmp)
+                    except Exception:
+                        pass
 
         except Exception as e:
-            messagebox.showerror("Error", f"Error al exportar a Excel: {str(e)}") 
+            self.root.after(0, lambda: self._completar_exportacion(False, str(e)))
+
+    def _actualizar_progreso(self, valor):
+        """Actualiza la barra de progreso desde el hilo principal."""
+        self.barra_progreso['value'] = valor
+        self.etiqueta_estado.config(text=f"Exportando a Excel... {int(valor)}%")
+
+    def _completar_exportacion(self, exito, mensaje):
+        """Completa el proceso de exportación y restaura la interfaz."""
+        self.exportacion_en_progreso = False
+        self.boton_exportar.config(state='normal')
+        self.barra_progreso.stop()
+        self.barra_progreso.config(mode='indeterminate')
+        
+        if exito:
+            self.etiqueta_estado.config(text=f"Exportación completada: {len(self.tree.get_children())} registros")
+            messagebox.showinfo("Éxito", f"Los datos se han exportado correctamente a:\n{mensaje}")
+        else:
+            self.etiqueta_estado.config(text="Error en la exportación")
+            messagebox.showerror("Error", f"Error al exportar a Excel: {mensaje}")
+
+    def ordenar_por_columna(self, columna):
+        """Ordena los datos de la tabla por la columna especificada."""
+        if not self.resultados_completos:
+            return
+        
+        # Determinar el orden de ordenamiento
+        if self.columna_ordenamiento == columna:
+            # Si es la misma columna, invertir el orden
+            self.orden_descendente = not self.orden_descendente
+        else:
+            # Si es una nueva columna, empezar con orden descendente
+            self.columna_ordenamiento = columna
+            self.orden_descendente = True
+        
+        # Actualizar el indicador visual en el encabezado
+        self._actualizar_indicador_ordenamiento(columna)
+        
+        # Obtener los datos actuales de la tabla
+        datos = []
+        for item in self.tree.get_children():
+            valores = self.tree.item(item)['values']
+            datos.append(valores)
+        
+        if not datos:
+            return
+        
+        # Mapear nombres de columnas a índices
+        columnas = [
+            "ID", "Formulario", "Fecha", "Hora", "Localidad",
+            "Clases Vehículos", "Placas", "Condiciones Actores",
+            "Fallecidos", "Heridos", "Ilesos", "Estados",
+            "Géneros", "Edades", "Causante", "Causa", 
+            "Terreno Vía", "Estado Vía"
+        ]
+        
+        try:
+            indice_columna = columnas.index(columna)
+            
+            # Ordenar los datos
+            if columna in ["ID", "Fallecidos", "Heridos", "Ilesos"]:
+                # Ordenamiento numérico
+                datos_ordenados = sorted(datos, 
+                    key=lambda x: int(x[indice_columna]) if x[indice_columna] and str(x[indice_columna]).isdigit() else 0,
+                    reverse=self.orden_descendente
+                )
+            elif columna in ["Fecha", "Hora"]:
+                # Ordenamiento por fecha/hora
+                datos_ordenados = sorted(datos,
+                    key=lambda x: x[indice_columna] if x[indice_columna] else "",
+                    reverse=self.orden_descendente
+                )
+            else:
+                # Ordenamiento alfabético
+                datos_ordenados = sorted(datos,
+                    key=lambda x: str(x[indice_columna]).lower() if x[indice_columna] else "",
+                    reverse=self.orden_descendente
+                )
+            
+            # Limpiar la tabla actual
+            for item in self.tree.get_children():
+                self.tree.delete(item)
+            
+            # Insertar los datos ordenados
+            for resultado in datos_ordenados:
+                # Convertir None a cadena vacía
+                valores = ['' if valor is None else str(valor) for valor in resultado]
+                self.tree.insert("", tk.END, values=valores)
+            
+            # Actualizar el estado
+            orden_texto = "descendente" if self.orden_descendente else "ascendente"
+            self.etiqueta_estado.config(text=f"Ordenado por {columna} ({orden_texto}) - {len(datos_ordenados)} registros")
+            
+        except (ValueError, IndexError) as e:
+            print(f"Error al ordenar por columna {columna}: {str(e)}")
+            messagebox.showerror("Error", f"No se pudo ordenar por la columna {columna}")
+
+    def _actualizar_indicador_ordenamiento(self, columna_actual):
+        """Actualiza los indicadores visuales de ordenamiento en los encabezados."""
+        columnas = [
+            "ID", "Formulario", "Fecha", "Hora", "Localidad",
+            "Clases Vehículos", "Placas", "Condiciones Actores",
+            "Fallecidos", "Heridos", "Ilesos", "Estados",
+            "Géneros", "Edades", "Causante", "Causa", 
+            "Terreno Vía", "Estado Vía"
+        ]
+        
+        for col in columnas:
+            if col == columna_actual:
+                # Agregar indicador de ordenamiento
+                indicador = " ↓" if self.orden_descendente else " ↑"
+                self.tree.heading(col, text=col + indicador)
+            else:
+                # Quitar indicador de otras columnas
+                self.tree.heading(col, text=col)
+
+    def _aplicar_ordenamiento(self, datos, columna, descendente):
+        """Aplica el ordenamiento a una lista de datos."""
+        columnas = [
+            "ID", "Formulario", "Fecha", "Hora", "Localidad",
+            "Clases Vehículos", "Placas", "Condiciones Actores",
+            "Fallecidos", "Heridos", "Ilesos", "Estados",
+            "Géneros", "Edades", "Causante", "Causa", 
+            "Terreno Vía", "Estado Vía"
+        ]
+        
+        try:
+            indice_columna = columnas.index(columna)
+            
+            # Ordenar los datos
+            if columna in ["ID", "Fallecidos", "Heridos", "Ilesos"]:
+                # Ordenamiento numérico
+                datos_ordenados = sorted(datos, 
+                    key=lambda x: int(x[indice_columna]) if x[indice_columna] and str(x[indice_columna]).isdigit() else 0,
+                    reverse=descendente
+                )
+            elif columna in ["Fecha", "Hora"]:
+                # Ordenamiento por fecha/hora
+                datos_ordenados = sorted(datos,
+                    key=lambda x: x[indice_columna] if x[indice_columna] else "",
+                    reverse=descendente
+                )
+            else:
+                # Ordenamiento alfabético
+                datos_ordenados = sorted(datos,
+                    key=lambda x: str(x[indice_columna]).lower() if x[indice_columna] else "",
+                    reverse=descendente
+                )
+            
+            return datos_ordenados
+            
+        except (ValueError, IndexError) as e:
+            print(f"Error al aplicar ordenamiento: {str(e)}")
+            return datos
+
+    def _actualizar_opciones_hora(self, datos_filtrados):
+        """Actualiza las opciones de hora basadas en los datos filtrados."""
+        try:
+            horas = sorted(set(str(resultado[3]).strip() for resultado in datos_filtrados if resultado[3]))
+            self.hora_filtro_inicio['values'] = [''] + horas
+            self.hora_filtro_fin['values'] = [''] + horas
+        except Exception as e:
+            print(f"Error al actualizar opciones de hora: {str(e)}")
+
+    def _actualizar_opciones_filtros(self, datos_filtrados):
+        """Actualiza todas las opciones de filtros basadas en los datos filtrados."""
+        try:
+            # Obtener valores únicos de los datos filtrados
+            localidades = sorted(set(str(resultado[4]).strip() for resultado in datos_filtrados if resultado[4]))
+            ids = sorted(set(str(resultado[0]).strip() for resultado in datos_filtrados if resultado[0]))
+            formularios = sorted(set(str(resultado[1]).strip() for resultado in datos_filtrados if resultado[1]))
+            horas = sorted(set(str(resultado[3]).strip() for resultado in datos_filtrados if resultado[3]))
+            
+            # Actualizar comboboxes con los nuevos valores
+            self.combo_localidad['values'] = [''] + localidades
+            self.combo_id['values'] = [''] + ids
+            self.combo_formulario['values'] = [''] + formularios
+            self.hora_filtro_inicio['values'] = [''] + horas
+            self.hora_filtro_fin['values'] = [''] + horas
+            
+        except Exception as e:
+            print(f"Error al actualizar opciones de filtros: {str(e)}")

@@ -43,7 +43,9 @@ class ModeloActualizacion:
         return campos_fecha_por_tabla.get(tabla, [])
 
     def limpiar_valores_fecha(self, df, campos_fecha):
-        """Limpia valores vacíos e inválidos en campos de fecha para todas las tablas"""
+        """Limpia valores vacíos e inválidos en campos de fecha para todas las tablas.
+        También convierte timestamps de milisegundos a formatos de fecha apropiados.
+        """
         print(f"DEBUG: Limpiando campos de fecha: {campos_fecha}")
         
         for columna in campos_fecha:
@@ -57,11 +59,58 @@ class ModeloActualizacion:
                     df[columna] = df[columna].replace('null', None)
                     df[columna] = df[columna].replace('NULL', None)
                     df[columna] = df[columna].replace('None', None)
+                    df[columna] = df[columna].replace('nan', None)
+                    df[columna] = df[columna].replace('NaN', None)
                     
                     # Convertir valores que son solo espacios en blanco a None
                     df[columna] = df[columna].apply(lambda x: None if isinstance(x, str) and x.strip() == '' else x)
                     
                     print(f"DEBUG: Valores únicos después de limpieza: {df[columna].unique()[:10]}")
+                    
+                    # Verificar si hay timestamps de milisegundos para convertir
+                    mask_not_null = df[columna].notna()
+                    if mask_not_null.any():
+                        valores_not_null = df.loc[mask_not_null, columna]
+                        
+                        # Verificar si los valores son timestamps numéricos
+                        valores_numericos = pd.to_numeric(valores_not_null, errors='coerce')
+                        mask_numeric = valores_numericos.notna()
+                        mask_positive = valores_numericos > 0
+                        mask_timestamp = mask_numeric & mask_positive
+                        
+                        # Verificar si los valores parecen ser timestamps (mayores a 1000000000000 para milisegundos)
+                        if mask_timestamp.any():
+                            timestamps = valores_numericos[mask_timestamp]
+                            # Verificar si son timestamps de milisegundos (13 dígitos)
+                            mask_milliseconds = (timestamps >= 1000000000000) & (timestamps < 10000000000000)
+                            
+                            if mask_milliseconds.any():
+                                print(f"DEBUG: Detectados timestamps de milisegundos en {columna}")
+                                # Convertir timestamps de milisegundos a datetime
+                                timestamps_validos = timestamps[mask_milliseconds]
+                                fechas_convertidas = pd.to_datetime(timestamps_validos, unit='ms')
+                                
+                                # Asignar las fechas convertidas
+                                indices_validos = df.loc[mask_not_null & mask_timestamp & mask_milliseconds, columna].index
+                                df.loc[indices_validos, columna] = fechas_convertidas
+                                
+                                # Formatear según el tipo de columna
+                                if columna in ['fecha_ocurrencia_acc', 'fecha_posterior_muerte', 'fecha_nacimiento']:
+                                    # Formato DATE: YYYY-MM-DD
+                                    df.loc[indices_validos, columna] = fechas_convertidas.dt.strftime('%Y-%m-%d')
+                                    print(f"DEBUG: Formateado como DATE: {df.loc[indices_validos, columna].iloc[0] if len(indices_validos) > 0 else 'N/A'}")
+                                elif columna in ['fecha_hora_acc']:
+                                    # Formato TIMESTAMP: YYYY-MM-DD HH:MM:SS
+                                    df.loc[indices_validos, columna] = fechas_convertidas.dt.strftime('%Y-%m-%d %H:%M:%S')
+                                    print(f"DEBUG: Formateado como TIMESTAMP: {df.loc[indices_validos, columna].iloc[0] if len(indices_validos) > 0 else 'N/A'}")
+                                
+                                # Convertir valores que no son timestamps válidos a None
+                                df.loc[mask_not_null & mask_timestamp & ~mask_milliseconds, columna] = None
+                    
+                    # Reemplazar NaT con None
+                    df[columna] = df[columna].where(df[columna].notna(), None)
+                    
+                    print(f"DEBUG: Valores finales de {columna}: {df[columna].unique()[:10]}")
                     
                 except Exception as e:
                     print(f"\nAdvertencia: No se pudo limpiar la columna {columna}: {str(e)}")
@@ -71,7 +120,9 @@ class ModeloActualizacion:
         return df
 
     def formatear_fechas(self, df):
-        """Formatea las columnas de fecha al formato correcto para PostgreSQL"""
+        """Formatea las columnas de fecha al formato correcto para PostgreSQL.
+        Convierte timestamps de milisegundos de la API a formatos de fecha/datetime de PostgreSQL.
+        """
         print(f"DEBUG: Iniciando formateo de fechas. Columnas: {list(df.columns)}")
         
         for columna in COLUMNAS_FECHA:
@@ -85,6 +136,8 @@ class ModeloActualizacion:
                     df[columna] = df[columna].replace('null', None)
                     df[columna] = df[columna].replace('NULL', None)
                     df[columna] = df[columna].replace('None', None)
+                    df[columna] = df[columna].replace('nan', None)
+                    df[columna] = df[columna].replace('NaN', None)
                     
                     # Convertir valores que son solo espacios en blanco a None
                     df[columna] = df[columna].apply(lambda x: None if isinstance(x, str) and x.strip() == '' else x)
@@ -93,7 +146,6 @@ class ModeloActualizacion:
                     
                     # Verificar si la columna tiene valores válidos después de la limpieza
                     if df[columna].isna().all():
-                        # Si todos los valores son NaN/None, mantener como None
                         print(f"DEBUG: Todos los valores de {columna} son None/NaN")
                         df[columna] = None
                         continue
@@ -101,35 +153,39 @@ class ModeloActualizacion:
                     # Convertir valores no nulos de milisegundos a datetime
                     mask_not_null = df[columna].notna()
                     if mask_not_null.any():
-                        # Verificar que los valores sean numéricos (timestamps)
                         valores_not_null = df.loc[mask_not_null, columna]
-                        
                         print(f"DEBUG: Valores no nulos de {columna}: {valores_not_null.unique()[:5]}")
                         
-                        # Filtrar solo valores que sean numéricos y mayores a 0
-                        mask_numeric = pd.to_numeric(valores_not_null, errors='coerce').notna()
-                        mask_positive = pd.to_numeric(valores_not_null, errors='coerce') > 0
+                        # Convertir a numérico para verificar si son timestamps válidos
+                        valores_numericos = pd.to_numeric(valores_not_null, errors='coerce')
+                        mask_numeric = valores_numericos.notna()
+                        mask_positive = valores_numericos > 0
                         mask_valid = mask_numeric & mask_positive
                         
                         print(f"DEBUG: Máscara válida para {columna}: {mask_valid.sum()} valores válidos de {len(mask_valid)}")
                         
                         if mask_valid.any():
                             # Convertir de milisegundos a datetime solo para valores válidos
-                            df.loc[mask_not_null & mask_valid, columna] = pd.to_datetime(
-                                df.loc[mask_not_null & mask_valid, columna], 
-                                unit='ms'
-                            )
+                            timestamps_validos = valores_numericos[mask_valid]
+                            fechas_convertidas = pd.to_datetime(timestamps_validos, unit='ms')
+                            
+                            # Asignar las fechas convertidas de vuelta al DataFrame
+                            indices_validos = df.loc[mask_not_null & mask_valid, columna].index
+                            df.loc[indices_validos, columna] = fechas_convertidas
                             
                             # Formatear según el tipo de columna
                             if columna in ['FECHA_OCURRENCIA_ACC', 'FECHA_POSTERIOR_MUERTE', 'FECHA_NACIMIENTO']:
                                 # Formato DATE: YYYY-MM-DD
-                                df.loc[mask_not_null & mask_valid, columna] = df.loc[mask_not_null & mask_valid, columna].dt.strftime('%Y-%m-%d')
+                                df.loc[indices_validos, columna] = fechas_convertidas.dt.strftime('%Y-%m-%d')
+                                print(f"DEBUG: Formateado como DATE: {df.loc[indices_validos, columna].iloc[0] if len(indices_validos) > 0 else 'N/A'}")
                             elif columna in ['FECHA_HORA_ACC']:
                                 # Formato TIMESTAMP: YYYY-MM-DD HH:MM:SS
-                                df.loc[mask_not_null & mask_valid, columna] = df.loc[mask_not_null & mask_valid, columna].dt.strftime('%Y-%m-%d %H:%M:%S')
+                                df.loc[indices_validos, columna] = fechas_convertidas.dt.strftime('%Y-%m-%d %H:%M:%S')
+                                print(f"DEBUG: Formateado como TIMESTAMP: {df.loc[indices_validos, columna].iloc[0] if len(indices_validos) > 0 else 'N/A'}")
                         
                         # Convertir valores inválidos a None
                         df.loc[mask_not_null & ~mask_valid, columna] = None
+                        print(f"DEBUG: Valores inválidos convertidos a None: {(~mask_valid).sum()}")
                     
                     # Reemplazar NaT con None (que se convertirá a NULL en PostgreSQL)
                     df[columna] = df[columna].where(df[columna].notna(), None)
@@ -148,8 +204,14 @@ class ModeloActualizacion:
             config = get_database_params()
             if config is None:
                 raise Exception("No hay configuración de base de datos. Por favor, configure la base de datos primero.")
+            
+            # Validar conexión antes de insertar
             conn = psycopg2.connect(**config)
             cursor = conn.cursor()
+            
+            # Verificar que la conexión funciona
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
             
             # Mapear los nombres de columnas de la API a los nombres de la base de datos
             mapeo_columnas = {}
@@ -354,6 +416,18 @@ class ModeloActualizacion:
             
             return True
             
+        except psycopg2.OperationalError as e:
+            error_msg = "No fue posible establecer conexión con la base de datos"
+            print(f"Error de conexión: {str(e)}")
+            if callback_progreso:
+                callback_progreso(f"[ERROR] {error_msg}", 0)
+            return False
+        except psycopg2.Error as e:
+            error_msg = "No fue posible establecer conexión con la base de datos"
+            print(f"Error de base de datos: {str(e)}")
+            if callback_progreso:
+                callback_progreso(f"[ERROR] {error_msg}", 0)
+            return False
         except Exception as e:
             print(f"Error al insertar registros: {str(e)}")
             if callback_progreso:
@@ -392,8 +466,13 @@ class ModeloActualizacion:
             
             print(f"DEBUG: Conectando a base de datos: {config['dbname']} en {config['host']}")
             
+            # Validar conexión con timeout
             conn = psycopg2.connect(**config)
             cursor = conn.cursor()
+            
+            # Verificar que la conexión funciona con una consulta simple
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
             
             nombre_tabla = CONFIG_TABLAS[tabla]['nombre_tabla']
             print(f"DEBUG: Buscando ObjectID más reciente en tabla: {nombre_tabla}")
@@ -434,6 +513,12 @@ class ModeloActualizacion:
             conn.close()
             return latest_objectid
             
+        except psycopg2.OperationalError as e:
+            print(f"Error de conexión a la base de datos: {str(e)}")
+            raise Exception("No fue posible establecer conexión con la base de datos")
+        except psycopg2.Error as e:
+            print(f"Error de base de datos: {str(e)}")
+            raise Exception("No fue posible establecer conexión con la base de datos")
         except Exception as e:
             print(f"Error al obtener el ObjectID más reciente: {str(e)}")
             # En caso de error, usar ObjectID = 0 para obtener todos los datos
@@ -531,6 +616,42 @@ class ModeloActualizacion:
             if controlador and not controlador.esta_actualizando():
                 print(f"DEBUG: Actualización de {tabla} cancelada")
                 return False
+            
+            # Validar conexión a la base de datos ANTES de proceder
+            if callback_progreso:
+                callback_progreso("Validando conexión a la base de datos...", 0)
+            
+            try:
+                config = get_database_params()
+                if config is None:
+                    raise Exception("No hay configuración de base de datos. Por favor, configure la base de datos primero.")
+                
+                # Probar conexión con timeout
+                conn = psycopg2.connect(**config)
+                cursor = conn.cursor()
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+                cursor.close()
+                conn.close()
+                
+                if callback_progreso:
+                    callback_progreso("Conexión a la base de datos validada correctamente", 0)
+                    
+            except psycopg2.OperationalError as e:
+                error_msg = "No fue posible establecer conexión con la base de datos"
+                if callback_progreso:
+                    callback_progreso(f"[ERROR] {error_msg}", 0)
+                raise Exception(error_msg)
+            except psycopg2.Error as e:
+                error_msg = "No fue posible establecer conexión con la base de datos"
+                if callback_progreso:
+                    callback_progreso(f"[ERROR] {error_msg}", 0)
+                raise Exception(error_msg)
+            except Exception as e:
+                error_msg = "No fue posible establecer conexión con la base de datos"
+                if callback_progreso:
+                    callback_progreso(f"[ERROR] {error_msg}", 0)
+                raise Exception(error_msg)
                 
             # Obtener el total de registros en la API
             api_url = API_URLS[tabla]

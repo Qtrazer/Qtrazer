@@ -28,11 +28,11 @@ class GestorBaseDatos:
             return True
         except psycopg2.OperationalError as e:
             # Error específico de conexión
-            raise Exception("Falló la conexión a la base de datos, valida con el administrador")
+            raise Exception("No fue posible establecer conexión con la base de datos")
         except Exception as e:
             # Otros errores
             if "connection" in str(e).lower() or "timeout" in str(e).lower() or "failed" in str(e).lower():
-                raise Exception("Falló la conexión a la base de datos, valida con el administrador")
+                raise Exception("No fue posible establecer conexión con la base de datos")
             else:
                 raise Exception(f"Error al conectar a la base de datos: {str(e)}")
 
@@ -44,93 +44,256 @@ class GestorBaseDatos:
             self.conexion.close()
 
     def obtener_siniestros_por_fecha(self, fecha_inicio, fecha_fin):
-        """Obtiene los siniestros en un rango de fechas con información detallada."""
+        """Obtiene los siniestros en un rango de fechas con información detallada - OPTIMIZADO."""
         try:
             if not self.conectar():
                 raise Exception("Falló la conexión a la base de datos, valida con el administrador")
 
-            consulta = """
+            # Consulta optimizada: Primero obtener los accidentes básicos con índice
+            consulta_principal = """
                 SELECT  
                     a.objectid, 
                     a.formulario, 
                     a.fecha_ocurrencia_acc, 
                     a.hora_ocurrencia_acc, 
-                    a.localidad,
-                    v.clases,
-                    v.placas,
-                    ac.condiciones_a,
-                    ac.fallecidos,
-                    ac.heridos,
-                    ac.ilesos,
-                    ac.estados,
-                    ac.generos,
-                    ac.edades,
-                    c.Causante,
-                    c.Causa,
-                    av.Terreno_via,
-                    av.Estado_via
-                FROM 
-                    accidente a
-                LEFT JOIN (
-                    SELECT 
-                        formulario,
-                        STRING_AGG(DISTINCT clase, ', ') AS clases,
-                        STRING_AGG(DISTINCT placa, ', ') AS placas
-                    FROM 
-                        vm_acc_vehiculo
-                    GROUP BY 
-                        formulario
-                ) v ON a.formulario = v.formulario
-                LEFT JOIN (
-                    SELECT 
-                        formulario,
-                        STRING_AGG(DISTINCT condicion_a, ', ') AS condiciones_a,
-                        COUNT(DISTINCT CASE WHEN estado = 'MUERTO' THEN objectid END) AS fallecidos,
-                        COUNT(DISTINCT CASE WHEN estado = 'HERIDO' THEN objectid END) AS heridos,
-                        COUNT(DISTINCT CASE WHEN estado = 'ILESO' THEN objectid END) AS ilesos,
-                        STRING_AGG(DISTINCT estado, ', ') AS estados,
-                        STRING_AGG(DISTINCT genero, ', ') AS generos,
-                        STRING_AGG(DISTINCT edad::text, ', ') AS edades
-                    FROM 
-                        vm_acc_actor_vial
-                    GROUP BY 
-                        formulario
-                ) ac ON a.formulario = ac.formulario
-                LEFT JOIN (
-                    SELECT 
-                        formulario,
-                        STRING_AGG(DISTINCT tipo_causa::text, ', ') AS Causante,
-                        STRING_AGG(DISTINCT nombre::text, ', ') AS Causa
-                    FROM 
-                        vm_acc_causa
-                    GROUP BY 
-                        formulario
-                ) c ON a.formulario = c.formulario
-                LEFT JOIN (
-                    SELECT 
-                        formulario,
-                        STRING_AGG(DISTINCT material::text, ', ') AS Terreno_via,
-                        STRING_AGG(DISTINCT estado::text, ', ') AS Estado_via
-                    FROM 
-                        vm_acc_vial
-                    GROUP BY 
-                        formulario
-                ) av ON a.formulario = av.formulario
+                    a.localidad
+                FROM accidente a
                 WHERE a.fecha_ocurrencia_acc BETWEEN %s AND %s
                 ORDER BY a.fecha_ocurrencia_acc
             """
 
-            self.cursor.execute(consulta, (fecha_inicio, fecha_fin))
-            resultados = self.cursor.fetchall()
+            self.cursor.execute(consulta_principal, (fecha_inicio, fecha_fin))
+            accidentes_basicos = self.cursor.fetchall()
+            
+            if not accidentes_basicos:
+                return []
+
+            # Obtener formularios para las consultas adicionales
+            formularios = [acc[1] for acc in accidentes_basicos]
+            placeholders = ','.join(['%s'] * len(formularios))
+            
+            # Consulta optimizada para vehículos
+            consulta_vehiculos = f"""
+                SELECT 
+                    formulario,
+                    STRING_AGG(DISTINCT clase, ', ') AS clases,
+                    STRING_AGG(DISTINCT placa, ', ') AS placas
+                FROM vm_acc_vehiculo
+                WHERE formulario IN ({placeholders})
+                GROUP BY formulario
+            """
+            
+            self.cursor.execute(consulta_vehiculos, formularios)
+            vehiculos_data = {row[0]: (row[1], row[2]) for row in self.cursor.fetchall()}
+            
+            # Consulta optimizada para actores viales
+            consulta_actores = f"""
+                SELECT 
+                    formulario,
+                    STRING_AGG(DISTINCT condicion_a, ', ') AS condiciones_a,
+                    COUNT(DISTINCT CASE WHEN estado = 'MUERTO' THEN objectid END) AS fallecidos,
+                    COUNT(DISTINCT CASE WHEN estado = 'HERIDO' THEN objectid END) AS heridos,
+                    COUNT(DISTINCT CASE WHEN estado = 'ILESO' THEN objectid END) AS ilesos,
+                    STRING_AGG(DISTINCT estado, ', ') AS estados,
+                    STRING_AGG(DISTINCT genero, ', ') AS generos,
+                    STRING_AGG(DISTINCT edad::text, ', ') AS edades
+                FROM vm_acc_actor_vial
+                WHERE formulario IN ({placeholders})
+                GROUP BY formulario
+            """
+            
+            self.cursor.execute(consulta_actores, formularios)
+            actores_data = {row[0]: (row[1], row[2], row[3], row[4], row[5], row[6], row[7]) for row in self.cursor.fetchall()}
+            
+            # Consulta optimizada para causas
+            consulta_causas = f"""
+                SELECT 
+                    formulario,
+                    STRING_AGG(DISTINCT tipo_causa::text, ', ') AS Causante,
+                    STRING_AGG(DISTINCT nombre::text, ', ') AS Causa
+                FROM vm_acc_causa
+                WHERE formulario IN ({placeholders})
+                GROUP BY formulario
+            """
+            
+            self.cursor.execute(consulta_causas, formularios)
+            causas_data = {row[0]: (row[1], row[2]) for row in self.cursor.fetchall()}
+            
+            # Consulta optimizada para vías
+            consulta_vias = f"""
+                SELECT 
+                    formulario,
+                    STRING_AGG(DISTINCT material::text, ', ') AS Terreno_via,
+                    STRING_AGG(DISTINCT estado::text, ', ') AS Estado_via
+                FROM vm_acc_vial
+                WHERE formulario IN ({placeholders})
+                GROUP BY formulario
+            """
+            
+            self.cursor.execute(consulta_vias, formularios)
+            vias_data = {row[0]: (row[1], row[2]) for row in self.cursor.fetchall()}
+            
+            # Combinar todos los datos
+            resultados = []
+            for acc in accidentes_basicos:
+                formulario = acc[1]
+                
+                # Obtener datos adicionales
+                vehiculo_info = vehiculos_data.get(formulario, (None, None))
+                actor_info = actores_data.get(formulario, (None, None, None, None, None, None, None))
+                causa_info = causas_data.get(formulario, (None, None))
+                via_info = vias_data.get(formulario, (None, None))
+                
+                # Construir resultado final
+                resultado = list(acc) + [
+                    vehiculo_info[0],  # clases
+                    vehiculo_info[1],  # placas
+                    actor_info[0],     # condiciones_a
+                    actor_info[1],     # fallecidos
+                    actor_info[2],     # heridos
+                    actor_info[3],     # ilesos
+                    actor_info[4],     # estados
+                    actor_info[5],     # generos
+                    actor_info[6],     # edades
+                    causa_info[0],     # Causante
+                    causa_info[1],     # Causa
+                    via_info[0],      # Terreno_via
+                    via_info[1]       # Estado_via
+                ]
+                
+                resultados.append(tuple(resultado))
+            
             return resultados
 
         except psycopg2.OperationalError as e:
             # Error específico de conexión
-            raise Exception("Falló la conexión a la base de datos, valida con el administrador")
+            raise Exception("No fue posible establecer conexión con la base de datos")
         except Exception as e:
             # Otros errores
             if "connection" in str(e).lower() or "timeout" in str(e).lower() or "failed" in str(e).lower():
+                raise Exception("No fue posible establecer conexión con la base de datos")
+            else:
+                raise Exception(f"Error al obtener siniestros: {str(e)}")
+        finally:
+            self.desconectar()
+
+    def obtener_siniestros_por_fecha_optimizado(self, fecha_inicio, fecha_fin, limite=None):
+        """Versión optimizada con límite opcional para consultas grandes."""
+        try:
+            if not self.conectar():
                 raise Exception("Falló la conexión a la base de datos, valida con el administrador")
+
+            # Consulta optimizada con límite si se especifica
+            consulta_principal = """
+                SELECT  
+                    a.objectid, 
+                    a.formulario, 
+                    a.fecha_ocurrencia_acc, 
+                    a.hora_ocurrencia_acc, 
+                    a.localidad
+                FROM accidente a
+                WHERE a.fecha_ocurrencia_acc BETWEEN %s AND %s
+                ORDER BY a.fecha_ocurrencia_acc
+            """
+            
+            if limite:
+                consulta_principal += f" LIMIT {limite}"
+
+            self.cursor.execute(consulta_principal, (fecha_inicio, fecha_fin))
+            accidentes_basicos = self.cursor.fetchall()
+            
+            if not accidentes_basicos:
+                return []
+
+            # Procesar en lotes para evitar consultas muy grandes
+            BATCH_SIZE = 1000
+            resultados = []
+            
+            for i in range(0, len(accidentes_basicos), BATCH_SIZE):
+                lote = accidentes_basicos[i:i + BATCH_SIZE]
+                formularios_lote = [acc[1] for acc in lote]
+                
+                if not formularios_lote:
+                    continue
+                    
+                placeholders = ','.join(['%s'] * len(formularios_lote))
+                
+                # Consultas optimizadas para el lote actual
+                consultas_lote = {
+                    'vehiculos': f"""
+                        SELECT formulario, STRING_AGG(DISTINCT clase, ', ') AS clases,
+                               STRING_AGG(DISTINCT placa, ', ') AS placas
+                        FROM vm_acc_vehiculo
+                        WHERE formulario IN ({placeholders})
+                        GROUP BY formulario
+                    """,
+                    'actores': f"""
+                        SELECT formulario, STRING_AGG(DISTINCT condicion_a, ', ') AS condiciones_a,
+                               COUNT(DISTINCT CASE WHEN estado = 'MUERTO' THEN objectid END) AS fallecidos,
+                               COUNT(DISTINCT CASE WHEN estado = 'HERIDO' THEN objectid END) AS heridos,
+                               COUNT(DISTINCT CASE WHEN estado = 'ILESO' THEN objectid END) AS ilesos,
+                               STRING_AGG(DISTINCT estado, ', ') AS estados,
+                               STRING_AGG(DISTINCT genero, ', ') AS generos,
+                               STRING_AGG(DISTINCT edad::text, ', ') AS edades
+                        FROM vm_acc_actor_vial
+                        WHERE formulario IN ({placeholders})
+                        GROUP BY formulario
+                    """,
+                    'causas': f"""
+                        SELECT formulario, STRING_AGG(DISTINCT tipo_causa::text, ', ') AS Causante,
+                               STRING_AGG(DISTINCT nombre::text, ', ') AS Causa
+                        FROM vm_acc_causa
+                        WHERE formulario IN ({placeholders})
+                        GROUP BY formulario
+                    """,
+                    'vias': f"""
+                        SELECT formulario, STRING_AGG(DISTINCT material::text, ', ') AS Terreno_via,
+                               STRING_AGG(DISTINCT estado::text, ', ') AS Estado_via
+                        FROM vm_acc_vial
+                        WHERE formulario IN ({placeholders})
+                        GROUP BY formulario
+                    """
+                }
+                
+                # Ejecutar consultas del lote
+                datos_lote = {}
+                for tipo, consulta in consultas_lote.items():
+                    self.cursor.execute(consulta, formularios_lote)
+                    if tipo == 'vehiculos':
+                        datos_lote[tipo] = {row[0]: (row[1], row[2]) for row in self.cursor.fetchall()}
+                    elif tipo == 'actores':
+                        datos_lote[tipo] = {row[0]: (row[1], row[2], row[3], row[4], row[5], row[6], row[7]) for row in self.cursor.fetchall()}
+                    elif tipo == 'causas':
+                        datos_lote[tipo] = {row[0]: (row[1], row[2]) for row in self.cursor.fetchall()}
+                    elif tipo == 'vias':
+                        datos_lote[tipo] = {row[0]: (row[1], row[2]) for row in self.cursor.fetchall()}
+                
+                # Combinar datos del lote
+                for acc in lote:
+                    formulario = acc[1]
+                    
+                    vehiculo_info = datos_lote['vehiculos'].get(formulario, (None, None))
+                    actor_info = datos_lote['actores'].get(formulario, (None, None, None, None, None, None, None))
+                    causa_info = datos_lote['causas'].get(formulario, (None, None))
+                    via_info = datos_lote['vias'].get(formulario, (None, None))
+                    
+                    resultado = list(acc) + [
+                        vehiculo_info[0], vehiculo_info[1],
+                        actor_info[0], actor_info[1], actor_info[2], actor_info[3], 
+                        actor_info[4], actor_info[5], actor_info[6],
+                        causa_info[0], causa_info[1],
+                        via_info[0], via_info[1]
+                    ]
+                    
+                    resultados.append(tuple(resultado))
+            
+            return resultados
+
+        except psycopg2.OperationalError as e:
+            raise Exception("No fue posible establecer conexión con la base de datos")
+        except Exception as e:
+            if "connection" in str(e).lower() or "timeout" in str(e).lower() or "failed" in str(e).lower():
+                raise Exception("No fue posible establecer conexión con la base de datos")
             else:
                 raise Exception(f"Error al obtener siniestros: {str(e)}")
         finally:
@@ -182,7 +345,7 @@ class GestorBaseDatos:
         except Exception as e:
             # Capturar específicamente errores de conexión
             if "connection" in str(e).lower() or "timeout" in str(e).lower() or "failed" in str(e).lower():
-                raise Exception("Falló la conexión a la base de datos, valida con el administrador")
+                raise Exception("No fue posible establecer conexión con la base de datos")
             else:
                 print(f"Error al procesar datos: {str(e)}")
                 if self.conexion:
@@ -224,6 +387,6 @@ class GestorBaseDatos:
         except Exception as e:
             # Capturar específicamente errores de conexión
             if "connection" in str(e).lower() or "timeout" in str(e).lower() or "failed" in str(e).lower():
-                raise Exception("Falló la conexión a la base de datos, valida con el administrador")
+                raise Exception("No fue posible establecer conexión con la base de datos")
             else:
                 raise Exception(f"Error al consultar siniestros: {str(e)}") 
