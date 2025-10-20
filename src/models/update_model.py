@@ -32,6 +32,7 @@ class ModeloActualizacion:
         if isinstance(dia, str):
             return self.DIAS.get(dia.upper(), 0)
         return 0
+    
 
     def obtener_campos_fecha_por_tabla(self, tabla):
         """Obtiene los campos de fecha específicos para cada tabla"""
@@ -200,7 +201,7 @@ class ModeloActualizacion:
                     df[columna] = None
         return df
 
-    def insertar_registros(self, df, config_tabla, callback_progreso=None):
+    def insertar_registros(self, df, config_tabla, callback_progreso=None, controlador=None):
         """Inserta los registros en la base de datos"""
         try:
             config = get_database_params()
@@ -337,11 +338,13 @@ class ModeloActualizacion:
             # Manejar campos específicos según la tabla
             if config_tabla == 'Accidente':
                 # Campos numéricos
-                df['codigo_accidente'] = df['codigo_accidente'].fillna(0).astype(int)
                 df['ano_ocurrencia_acc'] = df['ano_ocurrencia_acc'].fillna(0).astype(int)
                 df['dia_ocurrencia_acc'] = df['dia_ocurrencia_acc'].apply(self.convertir_dia_a_numero)
                 df['civ'] = df['civ'].fillna(0).astype(int)
                 df['pk_calzada'] = df['pk_calzada'].fillna(0).astype(int)
+                
+                # Campos de texto (incluyendo códigos alfanuméricos)
+                df['codigo_accidente'] = df['codigo_accidente'].fillna('').astype(str)
                 
                 # Campos de texto
                 df['mes_ocurrencia_acc'] = df['mes_ocurrencia_acc'].fillna('')
@@ -353,18 +356,23 @@ class ModeloActualizacion:
                 df['latitud'] = df['latitud'].fillna('')
                 df['longitud'] = df['longitud'].fillna('')
             elif config_tabla == 'AccidenteVehiculo':
-                df['codigo_vehiculo'] = df['codigo_vehiculo'].fillna(0).astype(int)
+                # Campos de texto (incluyendo códigos alfanuméricos)
+                df['codigo_vehiculo'] = df['codigo_vehiculo'].fillna('').astype(str)
                 df['enfuga'] = df['enfuga'].fillna('').astype(str)
             elif config_tabla == 'ActorVial':
-                df['codigo_vehiculo'] = df['codigo_vehiculo'].fillna(0).astype(int)
-                df['codigo_accidentado'] = df['codigo_accidentado'].fillna(0).astype(int)
-                df['codigo_victima'] = df['codigo_victima'].fillna(0).astype(int)
+                # Campos de texto (incluyendo códigos alfanuméricos)
+                df['codigo_vehiculo'] = df['codigo_vehiculo'].fillna('').astype(str)
+                df['codigo_accidentado'] = df['codigo_accidentado'].fillna('').astype(str)
+                df['codigo_victima'] = df['codigo_victima'].fillna('').astype(str)
+                # Solo edad se mantiene como numérico
                 df['edad'] = df['edad'].fillna(0).astype(int)
             elif config_tabla == 'Causa':
-                df['codigo_vehiculo'] = df['codigo_vehiculo'].fillna(0).astype(int)
-                df['codigo_causa'] = df['codigo_causa'].fillna(0).astype(int)
+                # Campos de texto (incluyendo códigos alfanuméricos)
+                df['codigo_vehiculo'] = df['codigo_vehiculo'].fillna('').astype(str)
+                df['codigo_causa'] = df['codigo_causa'].fillna('').astype(str)
             elif config_tabla == 'Accidente_via':
-                df['codigo_via'] = df['codigo_via'].fillna(0).astype(int)
+                # Campos de texto (incluyendo códigos alfanuméricos)
+                df['codigo_via'] = df['codigo_via'].fillna('').astype(str)
 
             
             # Obtener campos de fecha para la tabla actual
@@ -412,13 +420,28 @@ class ModeloActualizacion:
             
             if callback_progreso:
                 callback_progreso(f"Iniciando inserción de {total_registros} registros en la base de datos...", 0)
-                callback_progreso(f"[INFO] Registros insertados: 0/{total_registros}", 0)
+                # Inicializar mensaje de progreso único
+                callback_progreso(f"[PROGRESO] Registros insertados: 0/{total_registros} (0.0%)", 0)
             
             for i in range(0, total_registros, lote_size):
+                # Verificar cancelación antes de procesar cada lote
+                if controlador and not controlador.esta_actualizando():
+                    print("DEBUG: Inserción cancelada por el usuario")
+                    if callback_progreso:
+                        callback_progreso("Inserción cancelada por el usuario", 0)
+                    return registros_insertados
+                
                 lote = df.iloc[i:i + lote_size]
                 registros_en_lote = len(lote)
                 
                 for _, fila in lote.iterrows():
+                    # Verificar cancelación antes de procesar cada registro
+                    if controlador and not controlador.esta_actualizando():
+                        print("DEBUG: Inserción cancelada por el usuario")
+                        if callback_progreso:
+                            callback_progreso("Inserción cancelada por el usuario", 0)
+                        return registros_insertados
+                    
                     valores = [fila[col] for col in columnas_validas]
                     
                     # Limpiar valores vacíos e inválidos: reemplazar con None
@@ -439,11 +462,12 @@ class ModeloActualizacion:
                         cursor.execute(consulta, valores)
                         if cursor.rowcount > 0:
                             registros_insertados += 1
-                            # Actualizar progreso cada 100 registros
-                            if registros_insertados % 100 == 0:
+                            # Actualizar progreso cada 50 registros para mejor responsividad
+                            if registros_insertados % 50 == 0:
                                 porcentaje = (registros_insertados / total_registros) * 100
                                 if callback_progreso:
-                                    callback_progreso(f"[INFO] Registros insertados: {registros_insertados}/{total_registros} ({porcentaje:.1f}%)", porcentaje)
+                                    # Usar mensaje de progreso que se actualiza en la misma línea
+                                    callback_progreso(f"[PROGRESO] Registros insertados: {registros_insertados}/{total_registros} ({porcentaje:.1f}%)", porcentaje)
                     except Exception as e:
                         # DEBUG: Mostrar información detallada del error de inserción
                         print(f"DEBUG: Error al insertar registro:")
@@ -456,11 +480,9 @@ class ModeloActualizacion:
                 
                 conn.commit()
             
-            # Mostrar el total final
-            if callback_progreso:
-                callback_progreso(f"[INFO] Total de registros insertados: {registros_insertados}/{total_registros} (100%)", 100)
+            # Mostrar el total final - ELIMINADO para evitar saturación
             
-            return True
+            return registros_insertados  # Retornar número de registros insertados
             
         except psycopg2.OperationalError as e:
             error_msg = "No fue posible establecer conexión con la base de datos"
@@ -571,11 +593,14 @@ class ModeloActualizacion:
             print("DEBUG: Usando ObjectID = 0 debido a error en consulta")
             return 0
 
-    def get_new_records(self, api_url, last_objectid, campos_api, callback_progreso=None):
-        """Obtiene los registros completos mayores al último ObjectID con paginación"""
+    def get_new_records(self, api_url, last_objectid, campos_api, callback_progreso=None, tabla=None, controlador=None):
+        """Obtiene los registros completos mayores al último ObjectID con paginación e inserción en tiempo real"""
         all_records = []
         offset = 0
         total_fetched = 0
+        total_inserted = 0
+        registros_insertados_acumulativo = 0  # Contador acumulativo para progreso
+        start_time = time.time()  # Tiempo de inicio para cálculo de tiempo estimado
         
         # Determinar la condición WHERE según el ObjectID
         if last_objectid == 0:
@@ -619,16 +644,18 @@ class ModeloActualizacion:
             # Inicializar tiempo de inicio
             self.start_time = time.time()
             
-            # Obtenemos los registros por lotes
+            # Obtenemos los registros por lotes e insertamos en tiempo real
             lotes_sin_registros = 0  # Contador de lotes consecutivos sin registros
             MAX_LOTES_SIN_REGISTROS = 3  # Máximo de lotes sin registros antes de terminar
+            lote_size = 1000  # Tamaño del lote para procesamiento en tiempo real
             
             while total_fetched < total_records:
-                # Verificar si hay una cancelación (si se pasa el controlador)
-                if callback_progreso and hasattr(callback_progreso, '__self__') and hasattr(callback_progreso.__self__, 'esta_actualizando'):
-                    if not callback_progreso.__self__.esta_actualizando():
-                        print("DEBUG: Actualización cancelada durante obtención de registros")
-                        return all_records
+                # Verificar cancelación antes de procesar cada lote
+                if controlador and not controlador.esta_actualizando():
+                    print("DEBUG: Actualización cancelada durante obtención de registros")
+                    if callback_progreso:
+                        callback_progreso("Obtención de registros cancelada por el usuario", 0)
+                    return all_records
                 
                 params = {
                     'where': where_condition,
@@ -667,8 +694,56 @@ class ModeloActualizacion:
                         records = [feature['attributes'] for feature in features]
                         print(f"DEBUG: Registros procesados: {len(records)}")
                         
-                        all_records.extend(records)
+                        # Si hay registros, procesarlos e insertarlos inmediatamente
+                        if len(records) > 0 and tabla:
+                            print(f"DEBUG: Procesando e insertando lote de {len(records)} registros en tiempo real...")
+                            
+                            # Crear DataFrame con los registros del lote
+                            df_lote = pd.DataFrame(records)
+                            
+                            # Procesar el lote (formatear fechas, limpiar datos, etc.)
+                            if tabla in ['Accidente', 'ActorVial']:
+                                df_lote = self.formatear_fechas(df_lote)
+                            
+                            campos_fecha = self.obtener_campos_fecha_por_tabla(tabla)
+                            if campos_fecha:
+                                df_lote = self.limpiar_valores_fecha(df_lote, campos_fecha)
+                            
+                            # Ordenar por OBJECTID
+                            df_lote = df_lote.sort_values('OBJECTID')
+                            
+                            # Insertar el lote inmediatamente
+                            registros_insertados_lote = self.insertar_registros(df_lote, tabla, callback_progreso, controlador)
+                            
+                            if registros_insertados_lote > 0:
+                                total_inserted += len(records)
+                                registros_insertados_acumulativo += registros_insertados_lote
+                                print(f"DEBUG: Lote insertado exitosamente. Registros insertados en lote: {registros_insertados_lote}")
+                                
+                                # Actualizar progreso acumulativo con tiempo estimado
+                                if callback_progreso:
+                                    porcentaje = (total_fetched / total_records) * 100 if total_records > 0 else 100
+                                    
+                                    # Calcular tiempo estimado
+                                    tiempo_transcurrido = time.time() - start_time
+                                    if tiempo_transcurrido > 0 and total_fetched > 0:
+                                        registros_por_segundo = total_fetched / tiempo_transcurrido
+                                        registros_restantes = total_records - total_fetched
+                                        tiempo_restante = registros_restantes / registros_por_segundo if registros_por_segundo > 0 else 0
+                                        
+                                        horas = int(tiempo_restante // 3600)
+                                        minutos = int((tiempo_restante % 3600) // 60)
+                                        segundos = int(tiempo_restante % 60)
+                                        
+                                        tiempo_estimado = f"{horas:02d}:{minutos:02d}:{segundos:02d}"
+                                    else:
+                                        tiempo_estimado = "Calculando..."
+                                    
+                                    callback_progreso(f"[PROGRESO] Registros insertados: {registros_insertados_acumulativo}/{total_records} ({porcentaje:.1f}%) - Tiempo estimado: {tiempo_estimado}", porcentaje)
+                            else:
+                                print(f"DEBUG: Error al insertar lote. Continuando con siguiente lote...")
                         
+                        all_records.extend(records)
                         total_fetched += len(records)
                         offset += len(records)
                         
@@ -715,12 +790,7 @@ class ModeloActualizacion:
                         else:
                             tiempo_estimado = "Calculando..."
                         
-                        # Actualizar progreso con tiempo estimado
-                        progress = total_fetched/total_records*100 if total_records > 0 else 100
-                        mensaje = f"Obteniendo registros: {total_fetched:,}/{total_records:,} ({progress:.1f}%) - Tiempo estimado: {tiempo_estimado}"
-                        
-                        if callback_progreso:
-                            callback_progreso(mensaje, progress)
+                        # El progreso acumulativo ya se actualiza arriba después de insertar cada lote
                         
                         # Pausa entre solicitudes para no sobrecargar la API
                         print(f"DEBUG: Esperando {self.REQUEST_DELAY} segundos antes de la siguiente solicitud...")
@@ -762,7 +832,7 @@ class ModeloActualizacion:
                     print("DEBUG: No se pudo obtener el lote después de todos los reintentos. Terminando obtención.")
                     break
             
-            print(f"DEBUG: Finalizada la obtención de registros. Total obtenido: {total_fetched}")
+            print(f"DEBUG: Finalizada la obtención de registros. Total obtenido: {total_fetched}, Total insertado: {total_inserted}")
             return all_records
             
         except Exception as e:
@@ -843,37 +913,20 @@ class ModeloActualizacion:
             # Esto evita errores 400 cuando se especifican campos que no existen en la API
             campos_api = ['*']
             
-            new_records = self.get_new_records(api_url, latest_objectid, campos_api, callback_progreso)
+            new_records = self.get_new_records(api_url, latest_objectid, campos_api, callback_progreso, tabla, controlador)
             
+            # Los registros ya se procesaron e insertaron en tiempo real durante get_new_records
+            # Solo verificamos si hubo registros procesados
             if not new_records:
                 if callback_progreso:
                     callback_progreso("No hay nuevos registros para procesar", 0)
                 return True
             
             if callback_progreso:
-                callback_progreso(f"Total de nuevos registros encontrados: {len(new_records)}", 0)
-                callback_progreso(f"Porcentaje de nuevos registros: {(len(new_records)/total_records)*100:.2f}%", 0)
+                callback_progreso(f"Procesamiento en tiempo real completado. Total de registros procesados: {len(new_records)}", 0)
             
-            # Crear DataFrame con los registros
-            df = pd.DataFrame(new_records)
-            
-            # Formatear fechas si es necesario (solo para tablas que tienen campos de fecha complejos)
-            if tabla in ['Accidente', 'ActorVial']:
-                df = self.formatear_fechas(df)
-            
-            # Aplicar limpieza básica de fechas para todas las tablas que tengan campos de fecha
-            campos_fecha = self.obtener_campos_fecha_por_tabla(tabla)
-            if campos_fecha:
-                df = self.limpiar_valores_fecha(df, campos_fecha)
-            
-            # Ordenar por OBJECTID
-            df = df.sort_values('OBJECTID')
-            
-            # Insertar registros en la base de datos
-            if callback_progreso:
-                callback_progreso("Iniciando inserción de registros en la base de datos...", 0)
-            
-            resultado = self.insertar_registros(df, tabla, callback_progreso)
+            # Los registros ya fueron insertados en tiempo real, no necesitamos procesarlos nuevamente
+            resultado = True
             
             if resultado:
                 if callback_progreso:

@@ -117,4 +117,42 @@ class ControladorActualizacion:
                 print("DEBUG: Hilo de actualización marcado para cancelación")
             
             return True
-        return False 
+        return False
+
+    def iniciar_actualizacion_individual(self, tabla, callback_progreso=None):
+        """Inicia el proceso de actualización de una tabla específica."""
+        if self.actualizacion_en_progreso:
+            return False
+
+        self.actualizacion_en_progreso = True
+        self.tabla_actual = tabla
+
+        def ejecutar_actualizacion_individual():
+            try:
+                # Actualizar solo la tabla seleccionada
+                if callback_progreso:
+                    callback_progreso(f"[INICIO] Iniciando actualización de la tabla '{tabla}'...", 0)
+                
+                resultado = self.modelo.actualizar_datos(tabla, callback_progreso, self)
+                
+                if resultado:
+                    if callback_progreso:
+                        callback_progreso("Actualización completada exitosamente", 100)
+                    return True
+                else:
+                    if callback_progreso:
+                        callback_progreso(f"Error al actualizar la tabla '{tabla}'", 0)
+                    return False
+                    
+            except Exception as e:
+                if callback_progreso:
+                    callback_progreso(f"Error: {str(e)}", 0)
+                return False
+            finally:
+                self.actualizacion_en_progreso = False
+                self.tabla_actual = None
+
+        # Iniciar actualización en un hilo separado
+        self.thread_actualizacion = threading.Thread(target=ejecutar_actualizacion_individual, daemon=True)
+        self.thread_actualizacion.start()
+        return True 

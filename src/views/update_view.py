@@ -149,11 +149,20 @@ class VistaActualizacion:
         # Botón Iniciar Actualización
         self.start_button = ttk.Button(
             button_frame,
-            text="Iniciar Actualización",
+            text="Actualizar todas las Tablas",
             command=self.iniciar_actualizacion,
             style="Qtrazer.TButton"
         )
         self.start_button.pack(side=tk.LEFT, padx=10)
+
+        # Botón Actualización Individual
+        self.individual_button = ttk.Button(
+            button_frame,
+            text="Actualización Individual",
+            command=self.mostrar_selector_tabla,
+            style="Qtrazer.TButton"
+        )
+        self.individual_button.pack(side=tk.LEFT, padx=10)
 
         # Botón Cerrar
         self.close_button = ttk.Button(
@@ -176,6 +185,34 @@ class VistaActualizacion:
             self.log_text.insert(tk.END, f"\n[ERROR] No fue posible actualizar la tabla '{tabla}'\n", "error")
         elif "Iniciando actualización" in mensaje:
             self.log_text.insert(tk.END, f"\n[INICIO] {mensaje}\n", "inicio")
+        elif "[PROGRESO]" in mensaje:
+            # Manejar mensajes de progreso de manera especial para evitar saturación
+            if not hasattr(self, 'linea_progreso'):
+                # Primera vez que se muestra progreso, agregar nueva línea
+                self.log_text.insert(tk.END, f"\n{mensaje}\n", "progreso")
+                self.linea_progreso = True
+            else:
+                # Actualizar la última línea de progreso en lugar de agregar una nueva
+                # Buscar la última línea que contiene [PROGRESO]
+                contenido = self.log_text.get(1.0, tk.END)
+                lineas = contenido.split('\n')
+                
+                # Encontrar la última línea con [PROGRESO]
+                ultima_linea_progreso = -1
+                for i in range(len(lineas) - 1, -1, -1):
+                    if "[PROGRESO]" in lineas[i]:
+                        ultima_linea_progreso = i
+                        break
+                
+                if ultima_linea_progreso >= 0:
+                    # Reemplazar la última línea de progreso
+                    inicio_linea = f"{ultima_linea_progreso + 1}.0"
+                    fin_linea = f"{ultima_linea_progreso + 1}.end"
+                    self.log_text.delete(inicio_linea, fin_linea)
+                    self.log_text.insert(inicio_linea, mensaje, "progreso")
+                else:
+                    # Si no se encuentra línea de progreso, agregar nueva
+                    self.log_text.insert(tk.END, f"\n{mensaje}\n", "progreso")
         elif "Total de registros" in mensaje:
             self.log_text.insert(tk.END, f"\n[INFO] {mensaje}\n", "info")
         elif "ObjectID más reciente" in mensaje:
@@ -224,9 +261,11 @@ class VistaActualizacion:
         self.log_text.delete(1.0, tk.END)
         self.log_text.config(state=tk.DISABLED)
         
-        # Resetear el flag de inserción
+        # Resetear los flags de inserción y progreso
         if hasattr(self, 'mostrado_insercion'):
             delattr(self, 'mostrado_insercion')
+        if hasattr(self, 'linea_progreso'):
+            delattr(self, 'linea_progreso')
         
         def actualizar_progreso(mensaje, porcentaje):
             self.status_label.config(text=mensaje)
@@ -259,11 +298,155 @@ class VistaActualizacion:
         """Finaliza el proceso de actualización."""
         # Restaurar el estado de los botones
         self.start_button.config(state=tk.NORMAL)
+        self.individual_button.config(state=tk.NORMAL)
         self.close_button.config(state=tk.NORMAL)
         
         # Limpiar la barra de progreso
         self.progress_bar.config(value=0)
         self.percent_label.config(text="0%")
+        
+        # Actualizar el estado para indicar que la actualización ha terminado
+        self.status_label.config(text="Actualización finalizada - Ventana conservada para revisar historial")
+
+    def mostrar_selector_tabla(self):
+        """Muestra un diálogo para seleccionar una tabla específica para actualizar."""
+        if self.controlador.esta_actualizando():
+            messagebox.showwarning(
+                "Actualización en Progreso",
+                "Ya hay una actualización en curso. Por favor espere."
+            )
+            return
+
+        # Crear ventana de selección
+        selector_window = tk.Toplevel(self.root)
+        selector_window.title("Seleccionar Tabla para Actualización Individual")
+        selector_window.geometry("400x300")
+        selector_window.resizable(False, False)
+        selector_window.configure(bg="#E8E8E8")
+        
+        # Centrar la ventana
+        selector_window.transient(self.root)
+        selector_window.grab_set()
+
+        # Frame principal
+        main_frame = ttk.Frame(selector_window, style='Update.TFrame')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+
+        # Título
+        title_label = ttk.Label(
+            main_frame,
+            text="Seleccione la tabla a actualizar:",
+            font=("Helvetica", 14, "bold"),
+            foreground="#34495e",
+            style='Update.TLabel'
+        )
+        title_label.pack(pady=(0, 20))
+
+        # Lista de tablas disponibles
+        tablas_disponibles = [
+            ("Accidente", "Tabla principal de accidentes"),
+            ("Accidente_via", "Tabla de información vial"),
+            ("Causa", "Tabla de causas de accidentes"),
+            ("AccidenteVehiculo", "Tabla de vehículos involucrados"),
+            ("ActorVial", "Tabla de actores viales")
+        ]
+
+        # Variable para almacenar la selección
+        self.tabla_seleccionada = tk.StringVar()
+        self.tabla_seleccionada.set(tablas_disponibles[0][0])
+
+        # Crear radio buttons para cada tabla
+        for i, (tabla, descripcion) in enumerate(tablas_disponibles):
+            radio_frame = ttk.Frame(main_frame, style='Update.TFrame')
+            radio_frame.pack(fill=tk.X, pady=5)
+
+            radio_button = ttk.Radiobutton(
+                radio_frame,
+                text=f"{tabla}",
+                variable=self.tabla_seleccionada,
+                value=tabla,
+                style='Update.TRadiobutton'
+            )
+            radio_button.pack(side=tk.LEFT)
+
+            desc_label = ttk.Label(
+                radio_frame,
+                text=f"- {descripcion}",
+                font=("Helvetica", 10),
+                foreground="#666666",
+                style='Update.TLabel'
+            )
+            desc_label.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Frame para botones
+        button_frame = ttk.Frame(main_frame, style='Update.TFrame')
+        button_frame.pack(fill=tk.X, pady=(20, 0))
+
+        # Botón Actualizar
+        actualizar_button = ttk.Button(
+            button_frame,
+            text="Actualizar Tabla Seleccionada",
+            command=lambda: self.iniciar_actualizacion_individual(selector_window),
+            style="Qtrazer.TButton"
+        )
+        actualizar_button.pack(side=tk.LEFT, padx=(0, 10))
+
+        # Botón Cancelar
+        cancelar_button = ttk.Button(
+            button_frame,
+            text="Cancelar",
+            command=selector_window.destroy,
+            style="Qtrazer.TButton"
+        )
+        cancelar_button.pack(side=tk.LEFT)
+
+    def iniciar_actualizacion_individual(self, selector_window):
+        """Inicia la actualización de la tabla seleccionada individualmente."""
+        tabla = self.tabla_seleccionada.get()
+        selector_window.destroy()
+        
+        # Deshabilitar botones durante la actualización
+        self.start_button.config(state=tk.DISABLED)
+        self.individual_button.config(state=tk.DISABLED)
+        self.close_button.config(state=tk.DISABLED)
+        
+        # Limpiar el log
+        self.log_text.config(state=tk.NORMAL)
+        self.log_text.delete(1.0, tk.END)
+        self.log_text.config(state=tk.DISABLED)
+        
+        # Resetear los flags de inserción y progreso
+        if hasattr(self, 'mostrado_insercion'):
+            delattr(self, 'mostrado_insercion')
+        if hasattr(self, 'linea_progreso'):
+            delattr(self, 'linea_progreso')
+        
+        def actualizar_progreso(mensaje, porcentaje):
+            self.status_label.config(text=mensaje)
+            self.progress_bar['value'] = porcentaje
+            self.percent_label['text'] = f"{porcentaje:.1f}%"
+            self.agregar_log(mensaje)
+            self.root.update_idletasks()
+            
+            # Verificar si se completó todo el proceso
+            if "Actualización completada exitosamente" in mensaje:
+                self.finalizar_actualizacion()
+        
+        def ejecutar_actualizacion_individual():
+            try:
+                resultado = self.controlador.iniciar_actualizacion_individual(tabla, actualizar_progreso)
+                if resultado:
+                    self.progress_bar['value'] = 100
+                    self.percent_label['text'] = "100%"
+                else:
+                    actualizar_progreso("Error en la actualización", 0)
+            except Exception as e:
+                actualizar_progreso(f"Error: {str(e)}", 0)
+            finally:
+                self.root.after(0, self.finalizar_actualizacion)
+        
+        # Iniciar actualización en un hilo separado
+        threading.Thread(target=ejecutar_actualizacion_individual, daemon=True).start()
 
     def cerrar_ventana(self):
         """Cierra la ventana de actualización."""
@@ -274,11 +457,13 @@ class VistaActualizacion:
                 "Hay una actualización en curso. ¿Desea cancelar la actualización y cerrar la ventana?"
             )
             if respuesta:
-                # Cancelar la actualización
+                # Cancelar la actualización pero mantener la ventana abierta
                 self.controlador.cancelar_actualizacion()
                 self.agregar_log("Actualización cancelada por el usuario")
+                self.agregar_log("La ventana permanecerá abierta para mostrar el historial de la actualización")
                 self.finalizar_actualizacion()
-                self.root.destroy()
+                # NO cerrar la ventana para conservar el historial
+                # self.root.destroy()  # Comentado para mantener la ventana abierta
             # Si el usuario dice "No", no hacer nada (mantener la ventana abierta)
         else:
             self.root.destroy() 
