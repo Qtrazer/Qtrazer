@@ -419,7 +419,7 @@ class ModeloActualizacion:
             lote_size = 1000  # Tamaño del lote para insertar
             
             if callback_progreso:
-                callback_progreso(f"Iniciando inserción de {total_registros} registros en la base de datos...", 0)
+                callback_progreso(f"[INFO] Iniciando inserción de {total_registros} registros en la base de datos...", 0)
                 # Inicializar mensaje de progreso único
                 callback_progreso(f"[PROGRESO] Registros insertados: 0/{total_registros} (0.0%)", 0)
             
@@ -632,14 +632,21 @@ class ModeloActualizacion:
             
             print(f"DEBUG: Total de registros encontrados en API: {total_records}")
             
+            # Si no hay registros para procesar, mostrar mensaje y retornar
+            if total_records == 0:
+                print("DEBUG: No hay registros para procesar")
+                if callback_progreso:
+                    callback_progreso("[INFO] No hay nuevos registros para procesar", 0)
+                    callback_progreso("[PROGRESO] Registros insertados: 0/0 (100.0%)", 100)
+                    callback_progreso("[INFO] Procesamiento en tiempo real completado. Total de registros procesados: 0", 0)
+                    callback_progreso("[ÉXITO] Actualización completada", 100)
+                return []
+            
             # Para tablas vacías, obtener TODOS los registros sin límites
             if last_objectid == 0:
                 print(f"DEBUG: Tabla vacía - obteniendo TODOS los {total_records:,} registros disponibles")
                 if callback_progreso:
-                    callback_progreso(f"Tabla vacía detectada - se obtendrán TODOS los {total_records:,} registros", 0)
-            
-            if callback_progreso:
-                callback_progreso(f"Total de registros a obtener: {total_records}", 0)
+                    callback_progreso(f"[INFO] Tabla vacía detectada - se obtendrán TODOS los {total_records:,} registros", 0)
             
             # Inicializar tiempo de inicio
             self.start_time = time.time()
@@ -888,21 +895,32 @@ class ModeloActualizacion:
             total_records = self.get_total_records(api_url)
             
             if callback_progreso:
-                callback_progreso(f"Total de registros en la API: {total_records}", 0)
+                callback_progreso(f"[INFO] Total de registros en la API: {total_records}", 0)
             
             # Obtener el ObjectID más reciente
             latest_objectid = self.get_latest_objectid(tabla)
             if latest_objectid is None:
                 if callback_progreso:
-                    callback_progreso("No se pudo obtener el ObjectID más reciente", 0)
+                    callback_progreso("[ERROR] No se pudo obtener el ObjectID más reciente", 0)
                 return False
             
+            if callback_progreso:
+                callback_progreso(f"[INFO] ObjectID más reciente en BD: {latest_objectid}", 0)
+            
+            # Calcular cuántos registros se van a obtener
             if latest_objectid == 0:
+                registros_a_obtener = total_records
                 if callback_progreso:
-                    callback_progreso("Tabla vacía detectada - se obtendrán todos los datos desde el inicio", 0)
+                    callback_progreso("[INFO] Tabla vacía detectada - se obtendrán todos los datos desde el inicio", 0)
             else:
-                if callback_progreso:
-                    callback_progreso(f"ObjectID más reciente encontrado: {latest_objectid}", 0)
+                registros_a_obtener = total_records - latest_objectid
+                if registros_a_obtener < 0:
+                    registros_a_obtener = 0
+            
+            if callback_progreso:
+                callback_progreso(f"[INFO] Total de registros a obtener: {registros_a_obtener}", 0)
+            
+            # Si no hay registros para obtener, el método get_new_records se encargará de mostrar los mensajes apropiados
             
             # Verificar cancelación antes de obtener registros
             if controlador and not controlador.esta_actualizando():
@@ -919,26 +937,26 @@ class ModeloActualizacion:
             # Solo verificamos si hubo registros procesados
             if not new_records:
                 if callback_progreso:
-                    callback_progreso("No hay nuevos registros para procesar", 0)
+                    callback_progreso("[INFO] No hay nuevos registros para procesar", 0)
                 return True
             
             if callback_progreso:
-                callback_progreso(f"Procesamiento en tiempo real completado. Total de registros procesados: {len(new_records)}", 0)
+                callback_progreso(f"[INFO] Procesamiento en tiempo real completado. Total de registros procesados: {len(new_records)}", 0)
             
             # Los registros ya fueron insertados en tiempo real, no necesitamos procesarlos nuevamente
             resultado = True
             
             if resultado:
                 if callback_progreso:
-                    callback_progreso("Actualización completada exitosamente", 100)
+                    callback_progreso("[ÉXITO] Actualización completada", 100)
                 return True
             else:
                 if callback_progreso:
-                    callback_progreso("Error al insertar los registros", 0)
+                    callback_progreso("[ERROR] Error al insertar los registros", 0)
                 return False
             
         except Exception as e:
             print(f"Error en el proceso de actualización: {str(e)}")
             if callback_progreso:
-                callback_progreso(f"Error: {str(e)}", 0)
+                callback_progreso(f"[ERROR] {str(e)}", 0)
             return False 

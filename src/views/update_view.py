@@ -183,41 +183,46 @@ class VistaActualizacion:
         elif "Error al actualizar la tabla" in mensaje:
             tabla = mensaje.split("'")[1]
             self.log_text.insert(tk.END, f"\n[ERROR] No fue posible actualizar la tabla '{tabla}'\n", "error")
-        elif "Iniciando actualización" in mensaje:
-            self.log_text.insert(tk.END, f"\n[INICIO] {mensaje}\n", "inicio")
+        elif "[INICIO]" in mensaje or "Iniciando actualización" in mensaje:
+            # Evitar duplicar la etiqueta [INICIO] si ya viene en el mensaje
+            linea_inicio = mensaje if mensaje.startswith("[") else f"[INICIO] {mensaje}"
+            self.log_text.insert(tk.END, f"\n{linea_inicio}\n", "inicio")
         elif "[PROGRESO]" in mensaje:
-            # Manejar mensajes de progreso de manera especial para evitar saturación
-            if not hasattr(self, 'linea_progreso'):
-                # Primera vez que se muestra progreso, agregar nueva línea
-                self.log_text.insert(tk.END, f"\n{mensaje}\n", "progreso")
-                self.linea_progreso = True
-            else:
-                # Actualizar la última línea de progreso en lugar de agregar una nueva
-                # Buscar la última línea que contiene [PROGRESO]
-                contenido = self.log_text.get(1.0, tk.END)
-                lineas = contenido.split('\n')
-                
-                # Encontrar la última línea con [PROGRESO]
-                ultima_linea_progreso = -1
-                for i in range(len(lineas) - 1, -1, -1):
+            # Actualizar la línea de progreso SOLO dentro del bloque de la tabla en curso
+            contenido = self.log_text.get(1.0, tk.END)
+            lineas = contenido.split('\n')
+
+            # Buscar la última cabecera [INICIO]
+            idx_inicio = -1
+            for i in range(len(lineas) - 1, -1, -1):
+                if lineas[i].startswith("[INICIO]"):
+                    idx_inicio = i
+                    break
+
+            # Buscar el último [PROGRESO] desde idx_inicio hacia el final
+            ultima_linea_progreso = -1
+            if idx_inicio >= 0:
+                for i in range(len(lineas) - 1, idx_inicio, -1):
                     if "[PROGRESO]" in lineas[i]:
                         ultima_linea_progreso = i
                         break
-                
-                if ultima_linea_progreso >= 0:
-                    # Reemplazar la última línea de progreso
-                    inicio_linea = f"{ultima_linea_progreso + 1}.0"
-                    fin_linea = f"{ultima_linea_progreso + 1}.end"
-                    self.log_text.delete(inicio_linea, fin_linea)
-                    self.log_text.insert(inicio_linea, mensaje, "progreso")
-                else:
-                    # Si no se encuentra línea de progreso, agregar nueva
-                    self.log_text.insert(tk.END, f"\n{mensaje}\n", "progreso")
+
+            if ultima_linea_progreso >= 0:
+                # Reemplazar la última línea de progreso del bloque actual
+                inicio_linea = f"{ultima_linea_progreso + 1}.0"
+                fin_linea = f"{ultima_linea_progreso + 1}.end"
+                self.log_text.delete(inicio_linea, fin_linea)
+                self.log_text.insert(inicio_linea, mensaje, "progreso")
+            else:
+                # No existe progreso en el bloque actual: agregar una nueva línea
+                self.log_text.insert(tk.END, f"\n{mensaje}\n", "progreso")
         elif "Total de registros" in mensaje:
-            self.log_text.insert(tk.END, f"\n[INFO] {mensaje}\n", "info")
+            # Evitar duplicar etiqueta [INFO]
+            linea_info = mensaje if mensaje.startswith("[") else f"[INFO] {mensaje}"
+            self.log_text.insert(tk.END, f"\n{linea_info}\n", "info")
         elif "ObjectID más reciente" in mensaje:
-            objectid = mensaje.split(":")[1].strip()
-            self.log_text.insert(tk.END, f"[INFO] ObjectID más reciente en BD: {objectid}\n", "info")
+            # El mensaje ya viene formateado por el modelo/controlador
+            self.log_text.insert(tk.END, f"{mensaje}\n", "info")
         elif "Progreso:" in mensaje:
             partes = mensaje.split("(")
             if len(partes) > 1:
@@ -261,11 +266,9 @@ class VistaActualizacion:
         self.log_text.delete(1.0, tk.END)
         self.log_text.config(state=tk.DISABLED)
         
-        # Resetear los flags de inserción y progreso
+        # Resetear los flags de inserción
         if hasattr(self, 'mostrado_insercion'):
             delattr(self, 'mostrado_insercion')
-        if hasattr(self, 'linea_progreso'):
-            delattr(self, 'linea_progreso')
         
         def actualizar_progreso(mensaje, porcentaje):
             self.status_label.config(text=mensaje)
@@ -415,11 +418,9 @@ class VistaActualizacion:
         self.log_text.delete(1.0, tk.END)
         self.log_text.config(state=tk.DISABLED)
         
-        # Resetear los flags de inserción y progreso
+        # Resetear los flags de inserción
         if hasattr(self, 'mostrado_insercion'):
             delattr(self, 'mostrado_insercion')
-        if hasattr(self, 'linea_progreso'):
-            delattr(self, 'linea_progreso')
         
         def actualizar_progreso(mensaje, porcentaje):
             self.status_label.config(text=mensaje)

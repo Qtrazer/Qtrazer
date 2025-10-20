@@ -20,74 +20,42 @@ class ControladorActualizacion:
 
         def ejecutar_actualizacion():
             try:
-                # Primera actualización: Accidente
-                if callback_progreso:
-                    callback_progreso("Iniciando actualización de la tabla 'Accidente'...", 0)
+                # Lista de tablas a procesar en orden
+                tablas = [
+                    ('Accidente', 'Accidente'),
+                    ('Accidente_via', 'Accidente Via'),
+                    ('Causa', 'Accidente Causa'),
+                    ('AccidenteVehiculo', 'Accidente Vehiculo'),
+                    ('ActorVial', 'Actor Vial')
+                ]
                 
-                resultado_accidente = self.modelo.actualizar_datos('Accidente', callback_progreso, self)
-                
-                if resultado_accidente:
-                    # Verificar cancelación antes de continuar
+                for tabla_key, tabla_nombre in tablas:
+                    # Verificar cancelación antes de procesar cada tabla
                     if not self.actualizacion_en_progreso:
-                        print("DEBUG: Actualización cancelada después de tabla Accidente")
+                        print(f"DEBUG: Actualización cancelada antes de procesar tabla {tabla_nombre}")
                         return False
-                        
-                    # Segunda actualización: Accidente Via
+                    
+                    # Mostrar mensaje de inicio para la tabla actual
                     if callback_progreso:
-                        callback_progreso("Iniciando actualización de la tabla 'Accidente Via'...", 0)
+                        callback_progreso(f"[INICIO] Iniciando actualización de la tabla '{tabla_nombre}'...", 0)
                     
-                    resultado_accidente_via = self.modelo.actualizar_datos('Accidente_via', callback_progreso, self)
+                    # Procesar la tabla actual
+                    resultado = self.modelo.actualizar_datos(tabla_key, callback_progreso, self)
                     
-                    if resultado_accidente_via:
-                        # Verificar cancelación antes de continuar
-                        if not self.actualizacion_en_progreso:
-                            print("DEBUG: Actualización cancelada después de tabla Accidente_via")
-                            return False
-                            
-                        # Tercera actualización: Accidente Causa
+                    if not resultado:
                         if callback_progreso:
-                            callback_progreso("Iniciando actualización de la tabla 'Accidente Causa'...", 0)
-                        
-                        resultado_accidente_causa = self.modelo.actualizar_datos('Causa', callback_progreso, self)
-                        
-                        if resultado_accidente_causa:
-                            # Cuarta actualización: Accidente Vehiculo
-                            if callback_progreso:
-                                callback_progreso("Iniciando actualización de la tabla 'Accidente Vehiculo'...", 0)
-                            
-                            resultado_accidente_vehiculo = self.modelo.actualizar_datos('AccidenteVehiculo', callback_progreso, self)
-                            
-                            if resultado_accidente_vehiculo:
-                                # Quinta actualización: Actor Vial
-                                if callback_progreso:
-                                    callback_progreso("Iniciando actualización de la tabla 'Actor Vial'...", 0)
-                                
-                                resultado_actor_vial = self.modelo.actualizar_datos('ActorVial', callback_progreso, self)
-                                
-                                if resultado_actor_vial:
-                                    if callback_progreso:
-                                        callback_progreso("Actualización completada exitosamente", 100)
-                                    return True
-                                else:
-                                    if callback_progreso:
-                                        callback_progreso("Error al actualizar la tabla 'Actor Vial'", 0)
-                                    return False
-                            else:
-                                if callback_progreso:
-                                    callback_progreso("Error al actualizar la tabla 'Accidente Vehiculo'", 0)
-                                return False
-                        else:
-                            if callback_progreso:
-                                callback_progreso("Error al actualizar la tabla 'Accidente Causa'", 0)
-                            return False
-                    else:
-                        if callback_progreso:
-                            callback_progreso("Error al actualizar la tabla 'Accidente Via'", 0)
+                            callback_progreso(f"[ERROR] Error al actualizar la tabla '{tabla_nombre}'", 0)
                         return False
-                else:
-                    if callback_progreso:
-                        callback_progreso("Error al actualizar la tabla 'Accidente'", 0)
-                    return False
+                    
+                    # Verificar cancelación después de procesar cada tabla
+                    if not self.actualizacion_en_progreso:
+                        print(f"DEBUG: Actualización cancelada después de tabla {tabla_nombre}")
+                        return False
+                
+                # Si llegamos aquí, todas las tablas se procesaron exitosamente
+                if callback_progreso:
+                    callback_progreso("[ÉXITO] Actualización completada", 100)
+                return True
             except Exception as e:
                 if callback_progreso:
                     callback_progreso(f"Error inesperado: {str(e)}", 0)
